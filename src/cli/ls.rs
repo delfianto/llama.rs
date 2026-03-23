@@ -12,14 +12,29 @@ pub async fn exec(config: &Config) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    println!("{:<55} {:>10} {:>14}", "NAME", "SIZE", "MODIFIED");
+    // Dynamic column width based on longest model name
+    let name_width = models
+        .iter()
+        .map(|m| m.name.len())
+        .max()
+        .unwrap_or(4)
+        .max(4); // at least "NAME" width
+
+    println!(
+        "{:<width$}  {:>10}  {:>14}",
+        "NAME",
+        "SIZE",
+        "MODIFIED",
+        width = name_width
+    );
 
     for model in &models {
         println!(
-            "{:<55} {:>10} {:>14}",
+            "{:<width$}  {:>10}  {:>14}",
             model.name,
             format_size(model.size),
             format_relative_time(model.modified),
+            width = name_width
         );
     }
 
