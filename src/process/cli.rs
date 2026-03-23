@@ -19,6 +19,7 @@ pub fn spawn_cli(config: &Config, model_path: &Path) -> anyhow::Result<StdProces
     flags.push("-p".to_string());
     flags.push(config.system_prompt.clone());
     flags.push("--color".to_string());
+    flags.push("--log-disable".to_string());
 
     debug!("Spawning: {} {}", binary.display(), flags.join(" "));
 
@@ -41,6 +42,7 @@ pub fn build_cli_args(config: &Config, model_path: &Path) -> Vec<String> {
     flags.push("-p".to_string());
     flags.push(config.system_prompt.clone());
     flags.push("--color".to_string());
+    flags.push("--log-disable".to_string());
     flags
 }
 
