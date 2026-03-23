@@ -2,7 +2,11 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use llama_rs::{cli, config, error::output};
+use mimalloc::MiMalloc;
 use tracing_subscriber::EnvFilter;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 #[derive(Parser)]
 #[command(
