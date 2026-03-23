@@ -56,6 +56,7 @@ pub fn build_cli_args(config: &Config, model_path: &Path) -> Vec<String> {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)]
 mod tests {
     use super::*;
     use std::path::Path;
@@ -68,7 +69,7 @@ mod tests {
             "LLAMA_FLASH_ATTN",
             "LLAMA_MLOCK",
         ] {
-            std::env::remove_var(key);
+            unsafe { std::env::remove_var(key) };
         }
 
         let mut config = Config::from_env();

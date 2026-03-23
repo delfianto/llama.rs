@@ -1,17 +1,17 @@
+use axum::Json;
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use tracing::debug;
 
+use super::AppState;
 use super::stream::ndjson::{sse_to_ndjson_chat_stream, sse_to_ndjson_generate_stream};
 use super::types::{
-    ollama_chat_to_openai, ollama_generate_to_openai, openai_to_ollama_chat,
-    openai_to_ollama_generate, OllamaChatRequest, OllamaGenerateRequest, OllamaModelInfo,
-    OllamaShowRequest, OllamaShowResponse, OllamaTagsResponse,
+    OllamaChatRequest, OllamaGenerateRequest, OllamaModelInfo, OllamaShowRequest,
+    OllamaShowResponse, OllamaTagsResponse, ollama_chat_to_openai, ollama_generate_to_openai,
+    openai_to_ollama_chat, openai_to_ollama_generate,
 };
-use super::AppState;
 
 /// `POST /api/chat` — Ollama-compatible chat endpoint.
 pub async fn chat(
@@ -75,7 +75,8 @@ async fn stream_chat(state: AppState, request: &OllamaChatRequest) -> Result<Res
             .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR));
     }
 
-    let ndjson_stream = sse_to_ndjson_chat_stream(upstream.bytes_stream(), &state.model_name);
+    let ndjson_stream =
+        sse_to_ndjson_chat_stream(upstream.bytes_stream(), state.model_name.clone());
 
     Ok(Response::builder()
         .header("Content-Type", "application/x-ndjson")
@@ -149,7 +150,8 @@ async fn stream_generate(
             .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR));
     }
 
-    let ndjson_stream = sse_to_ndjson_generate_stream(upstream.bytes_stream(), &state.model_name);
+    let ndjson_stream =
+        sse_to_ndjson_generate_stream(upstream.bytes_stream(), state.model_name.clone());
 
     Ok(Response::builder()
         .header("Content-Type", "application/x-ndjson")

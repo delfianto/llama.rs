@@ -2,9 +2,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use axum::Router;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::post;
-use axum::Router;
 use serde_json::json;
 use tokio::net::TcpListener;
 use wiremock::matchers::{method, path};
@@ -283,10 +283,12 @@ async fn test_ollama_show_returns_model_info() {
 
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
-    assert!(body["modelfile"]
-        .as_str()
-        .unwrap()
-        .contains("test-model.gguf"));
+    assert!(
+        body["modelfile"]
+            .as_str()
+            .unwrap()
+            .contains("test-model.gguf")
+    );
 }
 
 // ─── Ollama NDJSON Streaming tests ───────────────────────────────────────────
@@ -312,13 +314,14 @@ async fn test_ollama_chat_streaming_ndjson() {
         .unwrap();
 
     assert_eq!(resp.status(), 200);
-    assert!(resp
-        .headers()
-        .get("content-type")
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .contains("application/x-ndjson"));
+    assert!(
+        resp.headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains("application/x-ndjson")
+    );
 
     let body = resp.text().await.unwrap();
     // Parse each NDJSON line
@@ -650,13 +653,14 @@ async fn test_sse_stream_forwards_events() {
         .unwrap();
 
     assert_eq!(resp.status(), 200);
-    assert!(resp
-        .headers()
-        .get("content-type")
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .contains("text/event-stream"));
+    assert!(
+        resp.headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains("text/event-stream")
+    );
 
     // Read the full body and check SSE events are present
     let body = resp.text().await.unwrap();

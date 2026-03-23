@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::download::download_file;
-use crate::download::hf::{resolve_gguf_filename, ModelSpec};
+use crate::download::hf::{ModelSpec, resolve_gguf_filename};
 use crate::error::output;
 
 /// Execute the `llama pull` command — download a GGUF model from HuggingFace.

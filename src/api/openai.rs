@@ -1,12 +1,12 @@
+use axum::Json;
 use axum::body::{Body, Bytes};
 use axum::extract::State;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use tracing::debug;
 
-use super::types::{ModelListResponse, ModelObject};
 use super::AppState;
+use super::types::{ModelListResponse, ModelObject};
 
 /// `POST /v1/chat/completions` — raw passthrough proxy to llama-server.
 ///

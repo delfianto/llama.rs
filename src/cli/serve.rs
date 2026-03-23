@@ -4,10 +4,10 @@ use std::time::Duration;
 use tracing::info;
 
 use crate::api::{self, AppState};
-use crate::config::resolve::resolve_model_path;
 use crate::config::Config;
-use crate::error::output;
+use crate::config::resolve::resolve_model_path;
 use crate::error::LlamaError;
+use crate::error::output;
 use crate::process::health::wait_for_ready;
 use crate::process::server::{shutdown_server, spawn_server};
 
