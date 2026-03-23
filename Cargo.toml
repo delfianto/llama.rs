@@ -1,0 +1,76 @@
+[package]
+name = "llama-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75.0"
+description = "Ollama-like CLI wrapper for llama.cpp"
+license = "MIT"
+
+[lib]
+name = "llama_rs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "llama"
+path = "src/main.rs"
+
+[dependencies]
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+async-stream = "0.3"
+
+# HTTP server (API proxy)
+axum = { version = "0.8", features = ["macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+# HTTP client (proxy to llama-server, HF downloads)
+reqwest = { version = "0.12", features = ["stream", "json"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Progress display
+indicatif = "0.17"
+
+# Utilities
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+bytesize = "1"
+nix = { version = "0.29", features = ["signal", "process"] }
+tokio-util = { version = "0.7", features = ["io"] }
+which = "7"
+dirs = "6"
+
+[dev-dependencies]
+tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
+tokio-test = "0.4"
+wiremock = "0.6"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
