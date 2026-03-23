@@ -110,7 +110,7 @@ pub async fn shutdown_server(state: &mut ServerState, timeout: std::time::Durati
     // Send SIGTERM
     #[cfg(unix)]
     {
-        use nix::sys::signal::{kill, Signal};
+        use nix::sys::signal::{Signal, kill};
         use nix::unistd::Pid;
         #[allow(clippy::cast_possible_wrap)]
         let _ = kill(Pid::from_raw(pid as i32), Signal::SIGTERM);
@@ -128,13 +128,14 @@ pub async fn shutdown_server(state: &mut ServerState, timeout: std::time::Durati
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)]
 mod tests {
     use super::*;
     use std::path::Path;
 
     fn test_config() -> Config {
         for key in ["LLAMA_BIN_DIR", "LLAMA_TENSOR_SPLIT"] {
-            std::env::remove_var(key);
+            unsafe { std::env::remove_var(key) };
         }
         let mut config = Config::from_env();
         config.gpu_layers = 999;

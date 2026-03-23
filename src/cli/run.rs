@@ -1,5 +1,5 @@
-use crate::config::resolve::resolve_model_path;
 use crate::config::Config;
+use crate::config::resolve::resolve_model_path;
 use crate::error::output;
 use crate::process::cli::spawn_cli;
 

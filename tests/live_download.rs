@@ -11,7 +11,7 @@ use tempfile::TempDir;
 
 use llama_rs::config::Config;
 use llama_rs::download::download_file;
-use llama_rs::download::hf::{resolve_gguf_filename, ModelSpec};
+use llama_rs::download::hf::{ModelSpec, resolve_gguf_filename};
 
 const SPEC: &str = "Mozilla/llama-test-model:tiny-llama";
 const EXPECTED_SIZE: u64 = 27488;

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use crate::config::resolve::resolve_model_path;
 use crate::config::Config;
+use crate::config::resolve::resolve_model_path;
 use crate::error::output;
 use crate::model::{cleanup_empty_dirs, find_process_using_model};
 
@@ -32,7 +32,7 @@ pub async fn exec(config: &Config, model: &str) -> anyhow::Result<()> {
 fn kill_process(pid: u32) {
     #[cfg(unix)]
     {
-        use nix::sys::signal::{kill, Signal};
+        use nix::sys::signal::{Signal, kill};
         use nix::unistd::Pid;
 
         #[allow(clippy::cast_possible_wrap)]

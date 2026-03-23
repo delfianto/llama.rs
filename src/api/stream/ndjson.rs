@@ -11,9 +11,9 @@ use tracing::debug;
 /// The final line has `"done": true` with optional `"done_reason"`.
 pub fn sse_to_ndjson_chat_stream(
     upstream: impl futures::Stream<Item = Result<Bytes, reqwest::Error>>,
-    model_name: &str,
+    model_name: String,
 ) -> impl futures::Stream<Item = Result<Bytes, std::io::Error>> {
-    let model = model_name.to_string();
+    let model = model_name;
 
     async_stream::stream! {
         let mut buffer = String::new();
@@ -67,9 +67,9 @@ pub fn sse_to_ndjson_chat_stream(
 /// Same as chat but for `/api/generate` format (uses `response` field instead of `message`).
 pub fn sse_to_ndjson_generate_stream(
     upstream: impl futures::Stream<Item = Result<Bytes, reqwest::Error>>,
-    model_name: &str,
+    model_name: String,
 ) -> impl futures::Stream<Item = Result<Bytes, std::io::Error>> {
-    let model = model_name.to_string();
+    let model = model_name;
 
     async_stream::stream! {
         let mut buffer = String::new();
