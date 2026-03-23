@@ -266,7 +266,9 @@ mod tests {
         .unwrap();
         assert_eq!(
             spec.local_path(Path::new("/models")),
-            Path::new("/models/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF-Q4_K_M.gguf")
+            Path::new(
+                "/models/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF-Q4_K_M.gguf"
+            )
         );
     }
 

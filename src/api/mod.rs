@@ -5,11 +5,11 @@ pub mod types;
 
 use std::sync::Arc;
 
+use axum::Router;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, head, post};
-use axum::Router;
 use tower_http::cors::CorsLayer;
 
 use crate::config::Config;

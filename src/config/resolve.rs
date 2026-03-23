@@ -180,10 +180,12 @@ mod tests {
         let tmp = setup_models_dir();
         let result = resolve_model_path(tmp.path(), "test-repo-GGUF-Q4_K_M.gguf");
         assert!(result.is_ok());
-        assert!(result
-            .expect("just checked")
-            .to_string_lossy()
-            .ends_with("test-repo-GGUF-Q4_K_M.gguf"));
+        assert!(
+            result
+                .expect("just checked")
+                .to_string_lossy()
+                .ends_with("test-repo-GGUF-Q4_K_M.gguf")
+        );
     }
 
     #[test]

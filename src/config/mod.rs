@@ -160,6 +160,7 @@ fn env_bool(key: &str, default: bool) -> bool {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)]
 mod tests {
     use super::*;
     use std::path::Path;
@@ -184,7 +185,7 @@ mod tests {
             "LLAMA_DOWNLOAD_CONNECTIONS",
             "LLAMA_LOG",
         ] {
-            std::env::remove_var(key);
+            unsafe { std::env::remove_var(key) };
         }
 
         let config = Config::from_env();
@@ -210,36 +211,36 @@ mod tests {
         assert!(env_bool("_TEST_NONEXISTENT_BOOL", true));
         assert!(!env_bool("_TEST_NONEXISTENT_BOOL", false));
 
-        std::env::set_var("_TEST_BOOL", "0");
+        unsafe { std::env::set_var("_TEST_BOOL", "0") };
         assert!(!env_bool("_TEST_BOOL", true));
 
-        std::env::set_var("_TEST_BOOL", "1");
+        unsafe { std::env::set_var("_TEST_BOOL", "1") };
         assert!(env_bool("_TEST_BOOL", false));
 
-        std::env::set_var("_TEST_BOOL", "false");
+        unsafe { std::env::set_var("_TEST_BOOL", "false") };
         assert!(!env_bool("_TEST_BOOL", true));
 
-        std::env::set_var("_TEST_BOOL", "true");
+        unsafe { std::env::set_var("_TEST_BOOL", "true") };
         assert!(env_bool("_TEST_BOOL", false));
 
-        std::env::remove_var("_TEST_BOOL");
+        unsafe { std::env::remove_var("_TEST_BOOL") };
     }
 
     #[test]
     fn test_env_parse() {
-        std::env::set_var("_TEST_U32", "42");
+        unsafe { std::env::set_var("_TEST_U32", "42") };
         assert_eq!(env_parse::<u32>("_TEST_U32", 0), 42);
 
-        std::env::set_var("_TEST_U32", "not_a_number");
+        unsafe { std::env::set_var("_TEST_U32", "not_a_number") };
         assert_eq!(env_parse::<u32>("_TEST_U32", 99), 99);
 
-        std::env::remove_var("_TEST_U32");
+        unsafe { std::env::remove_var("_TEST_U32") };
         assert_eq!(env_parse::<u32>("_TEST_U32", 99), 99);
     }
 
     #[test]
     fn test_common_flags_basic() {
-        std::env::remove_var("LLAMA_TENSOR_SPLIT");
+        unsafe { std::env::remove_var("LLAMA_TENSOR_SPLIT") };
         let mut config = Config::from_env();
         config.gpu_layers = 999;
         config.main_gpu = 0;
