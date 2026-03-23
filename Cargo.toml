@@ -54,6 +54,7 @@ nix = { version = "0.31", features = ["signal", "process"] }
 tokio-util = { version = "0.7", features = ["io"] }
 which = "8"
 dirs = "6"
+mimalloc = "0.1"
 
 [dev-dependencies]
 tempfile = "3"
