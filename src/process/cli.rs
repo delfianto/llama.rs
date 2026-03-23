@@ -19,16 +19,26 @@ pub fn spawn_cli(config: &Config, model_path: &Path) -> anyhow::Result<StdProces
     flags.push("-p".to_string());
     flags.push(config.system_prompt.clone());
     flags.push("--color".to_string());
-    flags.push("--log-disable".to_string());
 
     debug!("Spawning: {} {}", binary.display(), flags.join(" "));
 
-    let child = Command::new(&binary)
-        .args(&flags)
+    // Suppress llama.cpp's debug-level log output (token eval lines, etc.)
+    // by setting LLAMA_LOG_VERBOSITY=0 unless the user has already set it.
+    // This is the root cause of the noisy output — some llama.cpp builds
+    // (notably ik_llama.cpp) default to verbose token-level logging.
+    // Using an env var rather than --log-disable preserves warnings/errors
+    // and lets the user override with LLAMA_LOG_VERBOSITY=N if needed.
+    let mut cmd = Command::new(&binary);
+    cmd.args(&flags)
         .stdin(std::process::Stdio::inherit())
         .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .spawn()?;
+        .stderr(std::process::Stdio::inherit());
+
+    if std::env::var("LLAMA_LOG_VERBOSITY").is_err() {
+        cmd.env("LLAMA_LOG_VERBOSITY", "0");
+    }
+
+    let child = cmd.spawn()?;
 
     let pid = child.id();
 
@@ -42,7 +52,6 @@ pub fn build_cli_args(config: &Config, model_path: &Path) -> Vec<String> {
     flags.push("-p".to_string());
     flags.push(config.system_prompt.clone());
     flags.push("--color".to_string());
-    flags.push("--log-disable".to_string());
     flags
 }
 
