@@ -1,22 +1,31 @@
 use std::path::{Path, PathBuf};
 
-/// A parsed model spec in `org/repo:quant` format.
+use serde::Deserialize;
+
+/// A parsed model spec in `[hf.co/]org/repo:quant` format.
 ///
-/// Example: `mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF:Q4_K_M`
+/// Examples:
+/// - `mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF:Q4_K_M`
+/// - `hf.co/TheDrummer/Cydonia-24B-v4.3-GGUF:Q4_K_M`
 pub struct ModelSpec {
     /// The org (e.g., `mradermacher`)
     pub org: String,
     /// The repo name (e.g., `Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF`)
     pub repo: String,
-    /// The quantization variant (e.g., `Q4_K_M`)
+    /// The quantization tag (e.g., `Q4_K_M`)
     pub quant: String,
 }
 
 impl ModelSpec {
-    /// Parse a model spec string in `org/repo:quant` format.
+    /// Parse a model spec string.
     ///
-    /// Returns `None` if the format is invalid.
+    /// Accepts:
+    /// - `org/repo:quant`
+    /// - `hf.co/org/repo:quant` (ollama-style, strips `hf.co/` prefix)
     pub fn parse(spec: &str) -> Option<Self> {
+        // Strip hf.co/ prefix if present
+        let spec = spec.strip_prefix("hf.co/").unwrap_or(spec);
+
         let (org_repo, quant) = spec.split_once(':')?;
         let (org, repo) = org_repo.split_once('/')?;
 
@@ -31,13 +40,19 @@ impl ModelSpec {
         })
     }
 
-    /// The HuggingFace download URL.
-    ///
-    /// `https://huggingface.co/{org}/{repo}/resolve/main/{quant}.gguf`
-    pub fn hf_url(&self) -> String {
+    /// The HuggingFace API URL to list repo contents.
+    pub fn api_url(&self) -> String {
         format!(
-            "https://huggingface.co/{}/{}/resolve/main/{}.gguf",
-            self.org, self.repo, self.quant
+            "https://huggingface.co/api/models/{}/{}",
+            self.org, self.repo
+        )
+    }
+
+    /// Build the download URL for a specific filename.
+    pub fn download_url(&self, filename: &str) -> String {
+        format!(
+            "https://huggingface.co/{}/{}/resolve/main/{}",
+            self.org, self.repo, filename
         )
     }
 
@@ -54,6 +69,99 @@ impl ModelSpec {
     /// The display name: `{org}/{repo}-{quant}` (no .gguf extension).
     pub fn display_name(&self) -> String {
         format!("{}/{}-{}", self.org, self.repo, self.quant)
+    }
+
+    /// The HuggingFace repo id: `{org}/{repo}`
+    pub fn repo_id(&self) -> String {
+        format!("{}/{}", self.org, self.repo)
+    }
+}
+
+/// Response from `GET https://huggingface.co/api/models/{org}/{repo}`.
+#[derive(Deserialize)]
+pub struct HfModelInfo {
+    pub siblings: Option<Vec<HfSibling>>,
+}
+
+/// A file entry in the HuggingFace model info response.
+#[derive(Deserialize)]
+pub struct HfSibling {
+    pub rfilename: String,
+}
+
+/// Resolve the actual GGUF filename in a HuggingFace repo that matches the quant tag.
+///
+/// Calls `GET https://huggingface.co/api/models/{org}/{repo}` to list files,
+/// then finds the `.gguf` file whose name contains the quant string (case-insensitive).
+pub async fn resolve_gguf_filename(
+    client: &reqwest::Client,
+    spec: &ModelSpec,
+) -> anyhow::Result<String> {
+    let api_url = spec.api_url();
+    let resp = client.get(&api_url).send().await?;
+
+    match resp.status().as_u16() {
+        404 => anyhow::bail!(
+            "Repository not found: {}. Check the org and repo name.",
+            spec.repo_id()
+        ),
+        401 | 403 => anyhow::bail!(
+            "Access denied to {}. Set HF_TOKEN for gated models.",
+            spec.repo_id()
+        ),
+        s if s >= 400 => anyhow::bail!("HuggingFace API error: HTTP {s}"),
+        _ => {}
+    }
+
+    let info: HfModelInfo = resp.json().await?;
+
+    let siblings = info
+        .siblings
+        .ok_or_else(|| anyhow::anyhow!("No file listing returned for {}", spec.repo_id()))?;
+
+    // Find .gguf files matching the quant tag (case-insensitive)
+    let quant_lower = spec.quant.to_lowercase();
+    let mut candidates: Vec<&str> = siblings
+        .iter()
+        .map(|s| s.rfilename.as_str())
+        .filter(|f| {
+            std::path::Path::new(f)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("gguf"))
+        })
+        .filter(|f| f.to_lowercase().contains(&quant_lower))
+        .collect();
+
+    match candidates.len() {
+        0 => {
+            // List available quants for a helpful error
+            let available: Vec<&str> = siblings
+                .iter()
+                .map(|s| s.rfilename.as_str())
+                .filter(|f| {
+                    std::path::Path::new(f)
+                        .extension()
+                        .is_some_and(|ext| ext.eq_ignore_ascii_case("gguf"))
+                })
+                .collect();
+
+            if available.is_empty() {
+                anyhow::bail!("No GGUF files found in {}", spec.repo_id());
+            }
+            anyhow::bail!(
+                "No GGUF file matching '{}' in {}.\nAvailable files:\n  {}",
+                spec.quant,
+                spec.repo_id(),
+                available.join("\n  ")
+            );
+        }
+        1 => Ok(candidates[0].to_string()),
+        _ => {
+            // Multiple matches — pick the one that matches most precisely.
+            // Sort by length (shorter = more precise match) and pick first.
+            candidates.sort_by_key(|f| f.len());
+            Ok(candidates[0].to_string())
+        }
     }
 }
 
@@ -88,6 +196,14 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_spec_with_hf_prefix() {
+        let spec = ModelSpec::parse("hf.co/TheDrummer/Cydonia-24B-v4.3-GGUF:Q4_K_M").unwrap();
+        assert_eq!(spec.org, "TheDrummer");
+        assert_eq!(spec.repo, "Cydonia-24B-v4.3-GGUF");
+        assert_eq!(spec.quant, "Q4_K_M");
+    }
+
+    #[test]
     fn test_parse_spec_simple() {
         let spec = ModelSpec::parse("TheBloke/Mistral-7B-GGUF:Q4_K_M").unwrap();
         assert_eq!(spec.org, "TheBloke");
@@ -113,14 +229,20 @@ mod tests {
     }
 
     #[test]
-    fn test_hf_url() {
-        let spec = ModelSpec::parse(
-            "mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF:Q4_K_M",
-        )
-        .unwrap();
+    fn test_api_url() {
+        let spec = ModelSpec::parse("TheDrummer/Cydonia-24B-v4.3-GGUF:Q4_K_M").unwrap();
         assert_eq!(
-            spec.hf_url(),
-            "https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF/resolve/main/Q4_K_M.gguf"
+            spec.api_url(),
+            "https://huggingface.co/api/models/TheDrummer/Cydonia-24B-v4.3-GGUF"
+        );
+    }
+
+    #[test]
+    fn test_download_url() {
+        let spec = ModelSpec::parse("TheDrummer/Cydonia-24B-v4.3-GGUF:Q4_K_M").unwrap();
+        assert_eq!(
+            spec.download_url("Cydonia-24B-v4zg-Q4_K_M.gguf"),
+            "https://huggingface.co/TheDrummer/Cydonia-24B-v4.3-GGUF/resolve/main/Cydonia-24B-v4zg-Q4_K_M.gguf"
         );
     }
 
@@ -175,10 +297,9 @@ mod tests {
 
     #[test]
     fn test_mozilla_test_model() {
-        // Mozilla's test model has a single file, no quant suffix in the filename
         let spec = ModelSpec::parse("Mozilla/llama-test-model:tiny-llama").unwrap();
         assert_eq!(
-            spec.hf_url(),
+            spec.download_url("tiny-llama.gguf"),
             "https://huggingface.co/Mozilla/llama-test-model/resolve/main/tiny-llama.gguf"
         );
         assert_eq!(spec.filename(), "llama-test-model-tiny-llama.gguf");
@@ -187,5 +308,13 @@ mod tests {
             Path::new("/models/Mozilla/llama-test-model-tiny-llama.gguf")
         );
         assert_eq!(spec.display_name(), "Mozilla/llama-test-model-tiny-llama");
+    }
+
+    #[test]
+    fn test_hf_prefix_stripped_for_all_methods() {
+        let spec = ModelSpec::parse("hf.co/org/repo:Q4_K_M").unwrap();
+        assert_eq!(spec.org, "org");
+        assert_eq!(spec.repo, "repo");
+        assert_eq!(spec.api_url(), "https://huggingface.co/api/models/org/repo");
     }
 }
