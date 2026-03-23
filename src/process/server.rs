@@ -43,12 +43,18 @@ pub async fn spawn_server(config: &Config, model_path: &Path) -> anyhow::Result<
 
     debug!("Spawning: {} {}", binary.display(), flags.join(" "));
 
-    let mut child = Command::new(&binary)
-        .args(&flags)
+    let mut cmd = Command::new(&binary);
+    cmd.args(&flags)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()?;
+        .stderr(std::process::Stdio::piped());
+
+    // Suppress verbose llama.cpp logging unless user explicitly set it
+    if std::env::var("LLAMA_LOG_VERBOSITY").is_err() {
+        cmd.env("LLAMA_LOG_VERBOSITY", "0");
+    }
+
+    let mut child = cmd.spawn()?;
 
     let pid = child.id().unwrap_or(0);
 
