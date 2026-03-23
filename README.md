@@ -53,17 +53,17 @@ llama rm mradermacher/Qwen3-8B-GGUF:Q4_K_M
 All configuration via environment variables. No config files. Docker-friendly.
 
 ```bash
-LLAMA_GPU_LAYERS=999          # GPU layers to offload (default: all)
-LLAMA_CTX_SIZE=32768          # Context window (default: 32768)
-LLAMA_TENSOR_SPLIT=14,12      # Multi-GPU VRAM split
-LLAMA_HOST=127.0.0.1          # Bind address
-LLAMA_PORT=8080                # Port
-LLAMA_FLASH_ATTN=1             # Flash attention on/off
-LLAMA_MLOCK=1                  # Lock model in RAM
-LLAMA_THREADS=8                # CPU threads
-LLAMA_BATCH_SIZE=2048          # Batch size
-LLAMA_DOWNLOAD_CONNECTIONS=4   # Parallel download streams
-HF_TOKEN=hf_xxx               # HuggingFace token for gated models
+LLAMA_GPU_LAYERS=999         # GPU layers to offload (default: all)
+LLAMA_CTX_SIZE=32768         # Context window (default: 32768)
+LLAMA_TENSOR_SPLIT=14,12     # Multi-GPU VRAM split
+LLAMA_HOST=127.0.0.1         # Bind address
+LLAMA_PORT=8080              # Port
+LLAMA_FLASH_ATTN=1           # Flash attention on/off
+LLAMA_MLOCK=1                # Lock model in RAM
+LLAMA_THREADS=8              # CPU threads
+LLAMA_BATCH_SIZE=2048        # Batch size
+LLAMA_DOWNLOAD_CONNECTIONS=4 # Parallel download streams
+HF_TOKEN=hf_xxx             # HuggingFace token for gated models
 ```
 
 See [plans/CONFIG_REFERENCE.md](plans/CONFIG_REFERENCE.md) for the full list.
