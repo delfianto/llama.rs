@@ -8,7 +8,7 @@ pub async fn exec(config: &Config) -> anyhow::Result<()> {
 
     if models.is_empty() {
         println!("No models found in {}", config.models_dir.display());
-        println!("Use 'llama pull <repo> <file>' to download a model.");
+        println!("Use 'llama pull <org/repo:quant>' to download a model.");
         return Ok(());
     }
 
