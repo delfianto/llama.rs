@@ -33,6 +33,10 @@ test:
 test-live:
     cargo test --test live_server
 
+# Run signal handling and cancellation tests (needs llama-server)
+test-signal:
+    cargo test --test live_signal
+
 # Run live download tests against HuggingFace
 test-download:
     cargo test --test live_download
