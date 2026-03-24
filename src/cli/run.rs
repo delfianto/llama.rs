@@ -1,12 +1,7 @@
-use std::sync::atomic::{AtomicU32, Ordering};
-
 use crate::config::Config;
 use crate::config::resolve::resolve_model_path;
 use crate::error::output;
 use crate::process::cli::spawn_cli;
-
-/// Global child PID for signal forwarding.
-static CHILD_PID: AtomicU32 = AtomicU32::new(0);
 
 /// Execute the `llama run` command — start interactive REPL via llama-cli.
 #[allow(clippy::unused_async)]
@@ -23,22 +18,43 @@ pub async fn exec(config: &Config, model: &str) -> anyhow::Result<()> {
     eprintln!();
 
     let mut handle = spawn_cli(config, &model_path)?;
-    CHILD_PID.store(handle.pid, Ordering::SeqCst);
 
-    // Install signal forwarder: Ctrl+C sends SIGINT to the child instead of
-    // killing our parent. This lets llama-cli cancel generation gracefully.
+    // Ignore SIGINT in the parent while the child is running.
+    //
+    // Why: both parent and child are in the same foreground process group.
+    // When Ctrl+C is pressed, the kernel delivers SIGINT to EVERY process
+    // in the group. The child (llama-cli) handles it:
+    //   - Single Ctrl+C: cancels current generation, returns to REPL prompt
+    //   - Double Ctrl+C: exits with code 130
+    //
+    // If we DON'T ignore SIGINT in the parent, tokio's default handler kills
+    // the parent on the first Ctrl+C, orphaning the child.
+    //
+    // If we FORWARD SIGINT (the previous bug), the child gets TWO signals
+    // (one from the kernel, one from us) and treats it as double Ctrl+C → exit.
+    //
+    // The shell script avoided all this by using `exec` (no parent process).
+    // We can't exec, so we ignore SIGINT and let the child handle it naturally.
     #[cfg(unix)]
-    install_signal_forwarder();
+    let prev_handler = ignore_sigint();
 
     let status = handle.child.wait()?;
-    CHILD_PID.store(0, Ordering::SeqCst);
+
+    // Restore default SIGINT handling
+    #[cfg(unix)]
+    restore_sigint(prev_handler);
 
     if !status.success() {
-        // SIGINT exit (signal 2) is normal — user pressed Ctrl+C
         #[cfg(unix)]
         {
             use std::os::unix::process::ExitStatusExt;
+            // Signal 2 = killed by SIGINT (shouldn't normally happen since
+            // llama-cli handles SIGINT, but just in case)
             if status.signal() == Some(2) {
+                return Ok(());
+            }
+            // Exit code 130 = llama-cli's normal double-Ctrl+C exit (128 + 2)
+            if status.code() == Some(130) {
                 return Ok(());
             }
         }
@@ -47,31 +63,24 @@ pub async fn exec(config: &Config, model: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Install a raw SIGINT handler that forwards the signal to the child process.
-///
-/// The shell script used `exec` to replace itself with llama-cli, so Ctrl+C
-/// went directly to it. We can't do that (we need cleanup), so instead we
-/// catch SIGINT and forward it to the child PID.
+/// Set SIGINT to SIG_IGN (ignore). Returns the previous handler for restoration.
 #[cfg(unix)]
 #[allow(unsafe_code)]
-fn install_signal_forwarder() {
+fn ignore_sigint() -> nix::sys::signal::SigHandler {
     unsafe {
         nix::sys::signal::signal(
             nix::sys::signal::Signal::SIGINT,
-            nix::sys::signal::SigHandler::Handler(sigint_handler),
+            nix::sys::signal::SigHandler::SigIgn,
         )
-        .ok();
+        .unwrap_or(nix::sys::signal::SigHandler::SigDfl)
     }
 }
 
+/// Restore the previous SIGINT handler.
 #[cfg(unix)]
-extern "C" fn sigint_handler(_sig: std::ffi::c_int) {
-    let pid = CHILD_PID.load(Ordering::SeqCst);
-    if pid != 0 {
-        #[allow(clippy::cast_possible_wrap)]
-        let _ = nix::sys::signal::kill(
-            nix::unistd::Pid::from_raw(pid as i32),
-            nix::sys::signal::Signal::SIGINT,
-        );
+#[allow(unsafe_code)]
+fn restore_sigint(prev: nix::sys::signal::SigHandler) {
+    unsafe {
+        let _ = nix::sys::signal::signal(nix::sys::signal::Signal::SIGINT, prev);
     }
 }
