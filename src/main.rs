@@ -8,11 +8,30 @@ use tracing_subscriber::EnvFilter;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
+const ENV_HELP: &str = "\x1b[1mEnvironment variables:\x1b[0m
+  LLAMA_MODELS_DIR    Model storage directory       (default: OS data dir)
+  LLAMA_BIN_DIR       llama.cpp binary directory    (default: search PATH)
+  LLAMA_GPU_LAYERS    Layers to offload to GPU      (default: 999 = all)
+  LLAMA_CTX_SIZE      Context window size           (default: 32768)
+  LLAMA_BATCH_SIZE    Batch size                    (default: 2048)
+  LLAMA_THREADS       CPU threads                   (default: auto-detect)
+  LLAMA_TENSOR_SPLIT  VRAM ratio per GPU            (e.g., 14,12)
+  LLAMA_MAIN_GPU      Primary GPU index             (default: 0)
+  LLAMA_FLASH_ATTN    Flash attention 1=on 0=off    (default: 1)
+  LLAMA_MLOCK         Lock model in RAM             (default: 1)
+  LLAMA_HOST          Server bind address           (default: 127.0.0.1)
+  LLAMA_PORT          Server port                   (default: 8080)
+  LLAMA_SYSTEM_PROMPT System prompt for REPL        (default: You are a helpful assistant.)
+  LLAMA_DOWNLOAD_CONNECTIONS  Parallel downloads    (default: 4)
+  HF_TOKEN            HuggingFace token for gated models
+  LLAMA_LOG           Log level                     (default: info)";
+
 #[derive(Parser)]
 #[command(
     name = "llama",
     version,
-    about = "Ollama-like CLI wrapper for llama.cpp"
+    about = "Ollama-like CLI wrapper for llama.cpp",
+    after_help = ENV_HELP,
 )]
 struct Cli {
     #[command(subcommand)]
@@ -23,12 +42,12 @@ struct Cli {
 enum Commands {
     /// Start interactive REPL with a model
     Run {
-        /// Model file (filename, relative path, or absolute path)
+        /// Model spec or path (e.g., org/repo:quant, org/file.gguf, /absolute/path.gguf)
         model: String,
     },
     /// Start API server with a model
     Serve {
-        /// Model file (filename, relative path, or absolute path)
+        /// Model spec or path (e.g., org/repo:quant, org/file.gguf, /absolute/path.gguf)
         model: String,
     },
     /// Download a GGUF model from HuggingFace
