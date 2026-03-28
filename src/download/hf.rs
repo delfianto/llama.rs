@@ -77,6 +77,24 @@ impl ModelSpec {
     }
 }
 
+/// Metadata files to download alongside the GGUF model (LM Studio pattern).
+const METADATA_FILES: &[&str] = &[
+    "README.md",
+    "config.json",
+    "chat_template.jinja",
+    "tokenizer.json",
+    "tokenizer_config.json",
+];
+
+/// Result of resolving a model spec against the HuggingFace API.
+#[derive(Debug)]
+pub struct ResolvedModel {
+    /// The actual GGUF filename in the repo.
+    pub gguf_filename: String,
+    /// Metadata files present in the repo that should be downloaded alongside.
+    pub metadata_files: Vec<String>,
+}
+
 /// Response from `GET https://huggingface.co/api/models/{org}/{repo}`.
 #[derive(Deserialize)]
 pub struct HfModelInfo {
@@ -89,14 +107,15 @@ pub struct HfSibling {
     pub rfilename: String,
 }
 
-/// Resolve the actual GGUF filename in a HuggingFace repo that matches the quant tag.
+/// Resolve the actual GGUF filename and available metadata files in a HuggingFace repo.
 ///
 /// Calls `GET https://huggingface.co/api/models/{org}/{repo}` to list files,
-/// then finds the `.gguf` file whose name contains the quant string (case-insensitive).
+/// then finds the `.gguf` file whose name contains the quant string (case-insensitive),
+/// and identifies metadata files (config.json, tokenizer files, etc.) to download alongside.
 pub async fn resolve_gguf_filename(
     client: &reqwest::Client,
     spec: &ModelSpec,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<ResolvedModel> {
     let api_url = spec.api_url();
     let resp = client.get(&api_url).send().await?;
 
@@ -132,7 +151,7 @@ pub async fn resolve_gguf_filename(
         .filter(|f| f.to_lowercase().contains(&quant_lower))
         .collect();
 
-    match candidates.len() {
+    let gguf_filename = match candidates.len() {
         0 => {
             // List available quants for a helpful error
             let available: Vec<&str> = siblings
@@ -155,14 +174,28 @@ pub async fn resolve_gguf_filename(
                 available.join("\n  ")
             );
         }
-        1 => Ok(candidates[0].to_string()),
+        1 => candidates[0].to_string(),
         _ => {
             // Multiple matches — pick the one that matches most precisely.
             // Sort by length (shorter = more precise match) and pick first.
             candidates.sort_by_key(|f| f.len());
-            Ok(candidates[0].to_string())
+            candidates[0].to_string()
         }
-    }
+    };
+
+    // Find metadata files present in the repo
+    let repo_files: std::collections::HashSet<&str> =
+        siblings.iter().map(|s| s.rfilename.as_str()).collect();
+    let metadata_files = METADATA_FILES
+        .iter()
+        .filter(|f| repo_files.contains(**f))
+        .map(|f| (*f).to_string())
+        .collect();
+
+    Ok(ResolvedModel {
+        gguf_filename,
+        metadata_files,
+    })
 }
 
 /// Compute the display name for a model file on disk.
