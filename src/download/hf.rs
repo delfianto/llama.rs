@@ -56,19 +56,19 @@ impl ModelSpec {
         )
     }
 
-    /// The local filename: `{repo}-{quant}.gguf`
-    pub fn filename(&self) -> String {
-        format!("{}-{}.gguf", self.repo, self.quant)
+    /// The local repo directory: `{models_dir}/{org}/{repo}/`
+    pub fn local_dir(&self, models_dir: &Path) -> PathBuf {
+        models_dir.join(&self.org).join(&self.repo)
     }
 
-    /// The local file path: `{models_dir}/{org}/{repo}-{quant}.gguf`
-    pub fn local_path(&self, models_dir: &Path) -> PathBuf {
-        models_dir.join(&self.org).join(self.filename())
+    /// The local file path: `{models_dir}/{org}/{repo}/{gguf_filename}`
+    pub fn local_path(&self, models_dir: &Path, gguf_filename: &str) -> PathBuf {
+        self.local_dir(models_dir).join(gguf_filename)
     }
 
-    /// The display name: `{org}/{repo}-{quant}` (no .gguf extension).
+    /// The display name: `{org}/{repo}:{quant}` (echoes the spec format).
     pub fn display_name(&self) -> String {
-        format!("{}/{}-{}", self.org, self.repo, self.quant)
+        format!("{}/{}:{}", self.org, self.repo, self.quant)
     }
 
     /// The HuggingFace repo id: `{org}/{repo}`
@@ -247,14 +247,16 @@ mod tests {
     }
 
     #[test]
-    fn test_filename() {
+    fn test_local_dir() {
         let spec = ModelSpec::parse(
             "mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF:Q4_K_M",
         )
         .unwrap();
         assert_eq!(
-            spec.filename(),
-            "Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF-Q4_K_M.gguf"
+            spec.local_dir(Path::new("/models")),
+            Path::new(
+                "/models/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF"
+            )
         );
     }
 
@@ -265,9 +267,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            spec.local_path(Path::new("/models")),
+            spec.local_path(Path::new("/models"), "Qwen3.5-27B-Q4_K_M.gguf"),
             Path::new(
-                "/models/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF-Q4_K_M.gguf"
+                "/models/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF/Qwen3.5-27B-Q4_K_M.gguf"
             )
         );
     }
@@ -280,21 +282,21 @@ mod tests {
         .unwrap();
         assert_eq!(
             spec.display_name(),
-            "mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF-Q4_K_M"
+            "mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF:Q4_K_M"
         );
     }
 
     #[test]
     fn test_display_name_from_path() {
         assert_eq!(
-            display_name_from_path("mradermacher/Qwen3.5-27B-GGUF-Q4_K_M.gguf"),
-            "mradermacher/Qwen3.5-27B-GGUF-Q4_K_M"
+            display_name_from_path("mradermacher/Qwen3.5-27B-GGUF/Qwen3.5-27B-Q4_K_M.gguf"),
+            "mradermacher/Qwen3.5-27B-GGUF/Qwen3.5-27B-Q4_K_M"
         );
     }
 
     #[test]
     fn test_display_name_from_path_no_extension() {
-        assert_eq!(display_name_from_path("org/model"), "org/model");
+        assert_eq!(display_name_from_path("org/repo/model"), "org/repo/model");
     }
 
     #[test]
@@ -304,12 +306,15 @@ mod tests {
             spec.download_url("tiny-llama.gguf"),
             "https://huggingface.co/Mozilla/llama-test-model/resolve/main/tiny-llama.gguf"
         );
-        assert_eq!(spec.filename(), "llama-test-model-tiny-llama.gguf");
         assert_eq!(
-            spec.local_path(Path::new("/models")),
-            Path::new("/models/Mozilla/llama-test-model-tiny-llama.gguf")
+            spec.local_dir(Path::new("/models")),
+            Path::new("/models/Mozilla/llama-test-model")
         );
-        assert_eq!(spec.display_name(), "Mozilla/llama-test-model-tiny-llama");
+        assert_eq!(
+            spec.local_path(Path::new("/models"), "tiny-llama.gguf"),
+            Path::new("/models/Mozilla/llama-test-model/tiny-llama.gguf")
+        );
+        assert_eq!(spec.display_name(), "Mozilla/llama-test-model:tiny-llama");
     }
 
     #[test]

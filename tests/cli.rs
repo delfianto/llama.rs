@@ -96,9 +96,9 @@ fn test_rm_help() {
 #[test]
 fn test_ls_shows_nested_models() {
     let tmp = tempfile::TempDir::new().unwrap();
-    let org_dir = tmp.path().join("org");
-    std::fs::create_dir_all(&org_dir).unwrap();
-    std::fs::write(org_dir.join("repo-Q4_K_M.gguf"), vec![0u8; 2048]).unwrap();
+    let repo_dir = tmp.path().join("org").join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    std::fs::write(repo_dir.join("repo-Q4_K_M.gguf"), vec![0u8; 2048]).unwrap();
 
     Command::cargo_bin("llama")
         .unwrap()
@@ -106,7 +106,7 @@ fn test_ls_shows_nested_models() {
         .args(["ls"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("org/repo-Q4_K_M"));
+        .stdout(predicate::str::contains("org/repo/repo-Q4_K_M"));
 }
 
 #[test]
@@ -176,9 +176,9 @@ fn test_ls_empty_dir() {
 #[test]
 fn test_custom_models_dir() {
     let tmp = tempfile::TempDir::new().unwrap();
-    let org = tmp.path().join("myorg");
-    std::fs::create_dir_all(&org).unwrap();
-    std::fs::write(org.join("mymodel-Q4_K_M.gguf"), vec![0u8; 512]).unwrap();
+    let repo = tmp.path().join("myorg").join("myrepo");
+    std::fs::create_dir_all(&repo).unwrap();
+    std::fs::write(repo.join("mymodel-Q4_K_M.gguf"), vec![0u8; 512]).unwrap();
 
     // LLAMA_MODELS_DIR should control where models are found
     Command::cargo_bin("llama")
@@ -187,7 +187,7 @@ fn test_custom_models_dir() {
         .args(["ls"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("myorg/mymodel-Q4_K_M"));
+        .stdout(predicate::str::contains("myorg/myrepo/mymodel-Q4_K_M"));
 }
 
 // ─── New env var help tests ─────────────────────────────────────────────────
