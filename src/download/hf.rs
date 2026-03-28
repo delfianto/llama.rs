@@ -84,6 +84,8 @@ const METADATA_FILES: &[&str] = &[
     "chat_template.jinja",
     "tokenizer.json",
     "tokenizer_config.json",
+    "params",
+    "template",
 ];
 
 /// Result of resolving a model spec against the HuggingFace API.
