@@ -26,9 +26,11 @@ pub fn resolve_model_path(models_dir: &Path, input: &str) -> anyhow::Result<Path
     // 2. Model spec: org/repo:quant
     if input.contains(':') {
         if let Some(spec) = ModelSpec::parse(input) {
-            let full = spec.local_path(models_dir);
-            if full.is_file() {
-                return Ok(full);
+            let repo_dir = spec.local_dir(models_dir);
+            if repo_dir.is_dir() {
+                if let Some(found) = find_gguf_by_quant(&repo_dir, &spec.quant) {
+                    return Ok(found);
+                }
             }
             anyhow::bail!(LlamaError::ModelNotFound {
                 path: format!(
@@ -92,21 +94,43 @@ fn search_recursive(dir: &Path, filename: &str) -> Option<PathBuf> {
     None
 }
 
+/// Search a directory for a `.gguf` file whose name contains the quant tag (case-insensitive).
+fn find_gguf_by_quant(dir: &Path, quant: &str) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(dir).ok()?;
+    let quant_lower = quant.to_lowercase();
+
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if path.is_file() {
+            let is_gguf = path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("gguf"));
+            if is_gguf {
+                let fname = path.file_name()?.to_string_lossy().to_lowercase();
+                if fname.contains(&quant_lower) {
+                    return Some(path);
+                }
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
 
-    /// Set up a models dir matching the new flat structure:
-    /// models_dir/org/repo-quant.gguf
+    /// Set up a models dir matching the LM Studio 3-level structure:
+    /// models_dir/org/repo/file.gguf
     fn setup_models_dir() -> TempDir {
         let tmp = TempDir::new().expect("create temp dir");
 
-        // org/repo-quant.gguf (new flat structure)
-        let org_dir = tmp.path().join("mradermacher");
-        fs::create_dir_all(&org_dir).expect("create org dir");
-        fs::write(org_dir.join("test-repo-GGUF-Q4_K_M.gguf"), b"fake model").expect("write model");
+        // org/repo/file.gguf (3-level structure)
+        let repo_dir = tmp.path().join("mradermacher").join("test-repo-GGUF");
+        fs::create_dir_all(&repo_dir).expect("create repo dir");
+        fs::write(repo_dir.join("test-repo-GGUF-Q4_K_M.gguf"), b"fake model").expect("write model");
 
         // A top-level model (absolute path test)
         fs::write(tmp.path().join("simple.gguf"), b"fake model").expect("write model");
@@ -137,7 +161,8 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(
             result.expect("just checked"),
-            tmp.path().join("mradermacher/test-repo-GGUF-Q4_K_M.gguf")
+            tmp.path()
+                .join("mradermacher/test-repo-GGUF/test-repo-GGUF-Q4_K_M.gguf")
         );
     }
 
@@ -156,7 +181,10 @@ mod tests {
     #[test]
     fn test_relative_path_resolution() {
         let tmp = setup_models_dir();
-        let result = resolve_model_path(tmp.path(), "mradermacher/test-repo-GGUF-Q4_K_M.gguf");
+        let result = resolve_model_path(
+            tmp.path(),
+            "mradermacher/test-repo-GGUF/test-repo-GGUF-Q4_K_M.gguf",
+        );
         assert!(result.is_ok());
     }
 
@@ -164,7 +192,10 @@ mod tests {
     fn test_relative_path_without_extension() {
         let tmp = setup_models_dir();
         // Should find the .gguf file even without the extension
-        let result = resolve_model_path(tmp.path(), "mradermacher/test-repo-GGUF-Q4_K_M");
+        let result = resolve_model_path(
+            tmp.path(),
+            "mradermacher/test-repo-GGUF/test-repo-GGUF-Q4_K_M",
+        );
         assert!(result.is_ok());
     }
 
