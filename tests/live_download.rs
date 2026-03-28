@@ -224,8 +224,8 @@ async fn test_resolve_gguf_filename() {
         .build()
         .unwrap();
 
-    let filename = resolve_gguf_filename(&client, &spec).await.unwrap();
-    assert_eq!(filename, GGUF_FILENAME);
+    let resolved = resolve_gguf_filename(&client, &spec).await.unwrap();
+    assert_eq!(resolved.gguf_filename, GGUF_FILENAME);
 }
 
 #[tokio::test]
@@ -268,12 +268,12 @@ async fn test_hf_prefix_pull_flow() {
         .build()
         .unwrap();
 
-    let filename = resolve_gguf_filename(&client, &spec).await.unwrap();
-    assert_eq!(filename, GGUF_FILENAME);
+    let resolved = resolve_gguf_filename(&client, &spec).await.unwrap();
+    assert_eq!(resolved.gguf_filename, GGUF_FILENAME);
 
     let tmp = TempDir::new().unwrap();
     let dest = tmp.path().join(GGUF_FILENAME);
-    let url = spec.download_url(&filename);
+    let url = spec.download_url(&resolved.gguf_filename);
 
     download_file(&url, &dest, 1, None).await.unwrap();
     assert!(dest.exists());
