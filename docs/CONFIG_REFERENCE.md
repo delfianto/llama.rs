@@ -80,19 +80,33 @@ These set default sampling parameters for both `llama serve` and `llama run`. Wh
 ```
 llama run <model>                      Start interactive REPL
 llama serve <model>                    Start API server
-llama pull <org/repo> <filename>       Download GGUF from HuggingFace
+llama pull <org/repo:quant>            Download GGUF from HuggingFace
 llama ls                               List downloaded models
 llama rm <model>                       Delete a model
 llama --help                           Show help
 llama --version                        Show version
 ```
 
+### Model Directory Structure
+
+Models are stored in LM Studio-compatible 3-level structure:
+
+```
+$LLAMA_MODELS_DIR/
+└── org/
+    └── repo/
+        └── model-file.gguf
+```
+
+This allows models downloaded by llama.rs to be detected by LM Studio and vice versa.
+
 ### Model Argument Resolution
 
 The `<model>` argument is resolved in order:
 1. If absolute path → use as-is
-2. If contains `/` → treat as relative path under `$LLAMA_MODELS_DIR`
-3. Otherwise → search `$LLAMA_MODELS_DIR` recursively for a matching filename
+2. If `org/repo:quant` spec → search `$LLAMA_MODELS_DIR/org/repo/` for a `.gguf` file matching the quant tag
+3. If contains `/` → treat as relative path under `$LLAMA_MODELS_DIR`
+4. Otherwise → search `$LLAMA_MODELS_DIR` recursively for a matching filename
 
 ### Examples
 
@@ -107,7 +121,7 @@ llama serve mradermacher/L3.3-70B-Euryale-v2.3-heretic-i1-GGUF/model.gguf
 llama run /mnt/nvme/models/phi-4.gguf
 
 # Download a model
-llama pull mradermacher/L3.3-70B-Euryale-v2.3-heretic-i1-GGUF Q4_K_M.gguf
+llama pull mradermacher/L3.3-70B-Euryale-v2.3-heretic-i1-GGUF:Q4_K_M
 
 # Docker usage
 docker run -e LLAMA_GPU_LAYERS=40 -e LLAMA_CTX_SIZE=8192 \

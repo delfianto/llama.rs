@@ -30,8 +30,7 @@ fn download_url() -> String {
 #[tokio::test]
 async fn test_download_real_model() {
     let tmp = TempDir::new().unwrap();
-    let spec = parse_spec();
-    let dest = tmp.path().join(spec.filename());
+    let dest = tmp.path().join(GGUF_FILENAME);
 
     download_file(&download_url(), &dest, 1, None)
         .await
@@ -45,13 +44,22 @@ async fn test_download_real_model() {
 async fn test_download_creates_org_structure() {
     let tmp = TempDir::new().unwrap();
     let spec = parse_spec();
-    let dest = spec.local_path(tmp.path());
+    let dest = spec.local_path(tmp.path(), GGUF_FILENAME);
 
+    assert_eq!(dest.file_name().unwrap(), "tiny-llama.gguf");
     assert_eq!(
-        dest.file_name().unwrap(),
-        "llama-test-model-tiny-llama.gguf"
+        dest.parent().unwrap().file_name().unwrap(),
+        "llama-test-model"
     );
-    assert_eq!(dest.parent().unwrap().file_name().unwrap(), "Mozilla");
+    assert_eq!(
+        dest.parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap(),
+        "Mozilla"
+    );
 
     tokio::fs::create_dir_all(dest.parent().unwrap())
         .await
@@ -62,15 +70,14 @@ async fn test_download_creates_org_structure() {
 
     assert!(dest.exists());
     assert!(tmp.path().join("Mozilla").is_dir());
-    assert!(!tmp.path().join("Mozilla/llama-test-model").is_dir());
+    assert!(tmp.path().join("Mozilla/llama-test-model").is_dir());
     assert_eq!(fs::metadata(&dest).unwrap().len(), EXPECTED_SIZE);
 }
 
 #[tokio::test]
 async fn test_download_parallel_connections() {
     let tmp = TempDir::new().unwrap();
-    let spec = parse_spec();
-    let dest = tmp.path().join(spec.filename());
+    let dest = tmp.path().join(GGUF_FILENAME);
 
     download_file(&download_url(), &dest, 4, None)
         .await
@@ -83,8 +90,7 @@ async fn test_download_parallel_connections() {
 #[tokio::test]
 async fn test_download_skip_existing() {
     let tmp = TempDir::new().unwrap();
-    let spec = parse_spec();
-    let dest = tmp.path().join(spec.filename());
+    let dest = tmp.path().join(GGUF_FILENAME);
 
     download_file(&download_url(), &dest, 1, None)
         .await
@@ -146,7 +152,7 @@ async fn test_pull_ls_rm_lifecycle() {
     let config = Config::from_env();
     let spec = parse_spec();
 
-    let dest = spec.local_path(tmp.path());
+    let dest = spec.local_path(tmp.path(), GGUF_FILENAME);
     assert!(!dest.exists());
 
     tokio::fs::create_dir_all(dest.parent().unwrap())
@@ -166,7 +172,7 @@ async fn test_pull_ls_rm_lifecycle() {
 
     let models = llama_rs::model::scan_models(tmp.path()).unwrap();
     assert_eq!(models.len(), 1);
-    assert_eq!(models[0].name, "Mozilla/llama-test-model-tiny-llama");
+    assert_eq!(models[0].name, "Mozilla/llama-test-model/tiny-llama");
     assert_eq!(models[0].size, EXPECTED_SIZE);
 
     tokio::fs::remove_file(&dest).await.unwrap();
@@ -179,7 +185,7 @@ async fn test_resolve_spec_after_pull() {
     let tmp = TempDir::new().unwrap();
     let spec = parse_spec();
 
-    let dest = spec.local_path(tmp.path());
+    let dest = spec.local_path(tmp.path(), GGUF_FILENAME);
     tokio::fs::create_dir_all(dest.parent().unwrap())
         .await
         .unwrap();
@@ -191,18 +197,18 @@ async fn test_resolve_spec_after_pull() {
     let resolved = llama_rs::config::resolve::resolve_model_path(tmp.path(), SPEC).unwrap();
     assert_eq!(resolved, dest);
 
-    // Resolve via relative path
+    // Resolve via relative path (3-level)
     let resolved = llama_rs::config::resolve::resolve_model_path(
         tmp.path(),
-        "Mozilla/llama-test-model-tiny-llama.gguf",
+        "Mozilla/llama-test-model/tiny-llama.gguf",
     )
     .unwrap();
     assert_eq!(resolved, dest);
 
-    // Resolve without .gguf extension
+    // Resolve without .gguf extension (3-level)
     let resolved = llama_rs::config::resolve::resolve_model_path(
         tmp.path(),
-        "Mozilla/llama-test-model-tiny-llama",
+        "Mozilla/llama-test-model/tiny-llama",
     )
     .unwrap();
     assert_eq!(resolved, dest);
@@ -266,10 +272,24 @@ async fn test_hf_prefix_pull_flow() {
     assert_eq!(filename, GGUF_FILENAME);
 
     let tmp = TempDir::new().unwrap();
-    let dest = tmp.path().join(spec.filename());
+    let dest = tmp.path().join(GGUF_FILENAME);
     let url = spec.download_url(&filename);
 
     download_file(&url, &dest, 1, None).await.unwrap();
+    assert!(dest.exists());
+    assert_eq!(fs::metadata(&dest).unwrap().len(), EXPECTED_SIZE);
+}
+
+#[tokio::test]
+async fn test_download_with_auth_token() {
+    let tmp = TempDir::new().unwrap();
+    let dest = tmp.path().join(GGUF_FILENAME);
+
+    // Use a dummy token — HuggingFace accepts any Bearer token for public repos
+    download_file(&download_url(), &dest, 1, Some("hf_dummy_token_for_test"))
+        .await
+        .unwrap();
+
     assert!(dest.exists());
     assert_eq!(fs::metadata(&dest).unwrap().len(), EXPECTED_SIZE);
 }

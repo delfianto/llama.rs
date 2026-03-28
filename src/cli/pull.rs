@@ -18,14 +18,8 @@ pub async fn exec(config: &Config, spec: &str) -> anyhow::Result<()> {
         )
     })?;
 
-    let dest = model.local_path(&config.models_dir);
-
-    if dest.exists() {
-        output::info(&format!("Model already exists: {}", model.display_name()));
-        return Ok(());
-    }
-
     // Resolve the actual GGUF filename in the repo
+    // (needed to determine the local path in LM Studio-compatible structure)
     output::info(&format!(
         "Resolving {} in {}...",
         model.quant,
@@ -37,7 +31,18 @@ pub async fn exec(config: &Config, spec: &str) -> anyhow::Result<()> {
         .build()?;
 
     let gguf_filename = resolve_gguf_filename(&client, &model).await?;
+    let dest = model.local_path(&config.models_dir, &gguf_filename);
     let url = model.download_url(&gguf_filename);
+
+    if dest.exists() {
+        eprint!("File already exists: {}. Override? [y/N] ", dest.display());
+        let mut answer = String::new();
+        std::io::stdin().read_line(&mut answer)?;
+        if !answer.trim().eq_ignore_ascii_case("y") {
+            output::info("Skipped.");
+            return Ok(());
+        }
+    }
 
     output::info(&format!("Pulling {}", model.display_name()));
     output::info(&format!("File:   {gguf_filename}"));

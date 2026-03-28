@@ -142,14 +142,14 @@ mod tests {
     fn setup_models() -> TempDir {
         let tmp = TempDir::new().unwrap();
 
-        // New flat structure: org/repo-quant.gguf
-        let org1 = tmp.path().join("mradermacher");
-        fs::create_dir_all(&org1).unwrap();
-        fs::write(org1.join("test-repo-GGUF-Q4_K_M.gguf"), vec![0u8; 1024]).unwrap();
+        // LM Studio 3-level structure: org/repo/file.gguf
+        let repo1 = tmp.path().join("mradermacher").join("test-repo-GGUF");
+        fs::create_dir_all(&repo1).unwrap();
+        fs::write(repo1.join("test-repo-GGUF-Q4_K_M.gguf"), vec![0u8; 1024]).unwrap();
 
-        let org2 = tmp.path().join("TheBloke");
-        fs::create_dir_all(&org2).unwrap();
-        fs::write(org2.join("Mistral-7B-GGUF-Q4_K_M.gguf"), vec![0u8; 2048]).unwrap();
+        let repo2 = tmp.path().join("TheBloke").join("Mistral-7B-GGUF");
+        fs::create_dir_all(&repo2).unwrap();
+        fs::write(repo2.join("Mistral-7B-GGUF-Q4_K_M.gguf"), vec![0u8; 2048]).unwrap();
 
         // top-level model (e.g., manually placed)
         fs::write(tmp.path().join("simple.gguf"), vec![0u8; 512]).unwrap();
