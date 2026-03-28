@@ -28,7 +28,7 @@ cargo fmt --check && cargo clippy -- -D warnings && cargo test
 
 ## Architecture
 
-See `plans/ARCHITECTURE.md` for full details. Key layers:
+See `docs/ARCHITECTURE.md` for full details. Key layers:
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -68,11 +68,9 @@ See `plans/ARCHITECTURE.md` for full details. Key layers:
 - OpenAI API is a direct passthrough to llama-server (no translation needed)
 - Ollama API requires format translation (SSE ↔ NDJSON, field name mapping)
 
-## Detailed Plans
+## Documentation
 
-All implementation details live in `plans/`:
+Detailed documentation lives in `docs/`:
 - `ARCHITECTURE.md` — full system design
 - `DEPENDENCIES.md` — crate choices and rationale
 - `CONFIG_REFERENCE.md` — all env vars and CLI args
-- `STEP01.md` through `STEPXX.md` — implementation steps
-- `TRACKER.md` — progress tracking

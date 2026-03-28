@@ -70,7 +70,7 @@ HF_TOKEN=hf_xxx                              # HuggingFace token for gated model
 
 `LLAMA_MODELS_DIR` defaults to your OS data directory (`~/Library/Application Support/llama/models` on macOS, `~/.local/share/llama/models` on Linux).
 
-See [plans/CONFIG_REFERENCE.md](plans/CONFIG_REFERENCE.md) for the full list.
+See [docs/CONFIG_REFERENCE.md](docs/CONFIG_REFERENCE.md) for the full list.
 
 ## API endpoints
 
