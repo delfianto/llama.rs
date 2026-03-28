@@ -190,6 +190,29 @@ fn test_custom_models_dir() {
         .stdout(predicate::str::contains("myorg/mymodel-Q4_K_M"));
 }
 
+// ─── New env var help tests ─────────────────────────────────────────────────
+
+#[test]
+fn test_help_shows_new_env_vars() {
+    Command::cargo_bin("llama")
+        .unwrap()
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("LLAMA_SYSTEM_PROMPT_FILE"))
+        .stdout(predicate::str::contains("LLAMA_PROMPT_TEMPLATE_FILE"))
+        .stdout(predicate::str::contains("LLAMA_PROMPT_TEMPLATE"))
+        .stdout(predicate::str::contains("LLAMA_TEMPERATURE"))
+        .stdout(predicate::str::contains("LLAMA_MAX_TOKENS"))
+        .stdout(predicate::str::contains("LLAMA_CTX_OVERFLOW"))
+        .stdout(predicate::str::contains("LLAMA_STOP"))
+        .stdout(predicate::str::contains("LLAMA_TOP_K"))
+        .stdout(predicate::str::contains("LLAMA_REPEAT_PENALTY"))
+        .stdout(predicate::str::contains("LLAMA_PRESENCE_PENALTY"))
+        .stdout(predicate::str::contains("LLAMA_TOP_P"))
+        .stdout(predicate::str::contains("LLAMA_MIN_P"));
+}
+
 #[test]
 fn test_ls_shows_models() {
     let tmp = tempfile::TempDir::new().unwrap();

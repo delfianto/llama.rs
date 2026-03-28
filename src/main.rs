@@ -9,22 +9,34 @@ use tracing_subscriber::EnvFilter;
 static GLOBAL: MiMalloc = MiMalloc;
 
 const ENV_HELP: &str = "\x1b[1mEnvironment variables:\x1b[0m
-  LLAMA_MODELS_DIR    Model storage directory       (default: OS data dir)
-  LLAMA_BIN_DIR       llama.cpp binary directory    (default: search PATH)
-  LLAMA_GPU_LAYERS    Layers to offload to GPU      (default: 999 = all)
-  LLAMA_CTX_SIZE      Context window size           (default: 32768)
-  LLAMA_BATCH_SIZE    Batch size                    (default: 2048)
-  LLAMA_THREADS       CPU threads                   (default: auto-detect)
-  LLAMA_TENSOR_SPLIT  VRAM ratio per GPU            (e.g., 14,12)
-  LLAMA_MAIN_GPU      Primary GPU index             (default: 0)
-  LLAMA_FLASH_ATTN    Flash attention 1=on 0=off    (default: 1)
-  LLAMA_MLOCK         Lock model in RAM             (default: 1)
-  LLAMA_HOST          Server bind address           (default: 127.0.0.1)
-  LLAMA_PORT          Server port                   (default: 8080)
-  LLAMA_SYSTEM_PROMPT System prompt for REPL        (default: You are a helpful assistant.)
-  LLAMA_DOWNLOAD_CONNECTIONS  Parallel downloads    (default: 4)
-  HF_TOKEN            HuggingFace token for gated models
-  LLAMA_LOG           Log level                     (default: info)";
+  LLAMA_MODELS_DIR       Model storage directory       (default: OS data dir)
+  LLAMA_BIN_DIR          llama.cpp binary directory    (default: search PATH)
+  LLAMA_GPU_LAYERS       Layers to offload to GPU      (default: 999 = all)
+  LLAMA_CTX_SIZE         Context window size           (default: 32768)
+  LLAMA_BATCH_SIZE       Batch size                    (default: 2048)
+  LLAMA_THREADS          CPU threads                   (default: auto-detect)
+  LLAMA_TENSOR_SPLIT     VRAM ratio per GPU            (e.g., 14,12)
+  LLAMA_MAIN_GPU         Primary GPU index             (default: 0)
+  LLAMA_FLASH_ATTN       Flash attention 1=on 0=off    (default: 1)
+  LLAMA_MLOCK            Lock model in RAM             (default: 1)
+  LLAMA_HOST             Server bind address           (default: 127.0.0.1)
+  LLAMA_PORT             Server port                   (default: 8080)
+  LLAMA_SYSTEM_PROMPT    System prompt for REPL        (default: You are a helpful assistant.)
+  LLAMA_SYSTEM_PROMPT_FILE  Path to system prompt file (overrides LLAMA_SYSTEM_PROMPT)
+  LLAMA_PROMPT_TEMPLATE_FILE  Path to chat template file (overrides LLAMA_PROMPT_TEMPLATE)
+  LLAMA_PROMPT_TEMPLATE  Chat template string
+  LLAMA_TEMPERATURE      Sampling temperature
+  LLAMA_MAX_TOKENS       Max response tokens
+  LLAMA_CTX_OVERFLOW     Context overflow: shift|stop  (default: shift)
+  LLAMA_STOP             Stop strings, comma-separated (llama run only)
+  LLAMA_TOP_K            Top-k sampling
+  LLAMA_REPEAT_PENALTY   Repeat penalty
+  LLAMA_PRESENCE_PENALTY Presence penalty
+  LLAMA_TOP_P            Top-p / nucleus sampling
+  LLAMA_MIN_P            Min-p sampling
+  LLAMA_DOWNLOAD_CONNECTIONS  Parallel downloads       (default: 4)
+  HF_TOKEN               HuggingFace token for gated models
+  LLAMA_LOG              Log level                     (default: info)";
 
 #[derive(Parser)]
 #[command(
