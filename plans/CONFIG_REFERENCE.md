@@ -36,11 +36,30 @@ All configuration is via environment variables, matching the original `llama.sh`
 | `LLAMA_HOST` | `127.0.0.1` | Bind address for the proxy server |
 | `LLAMA_PORT` | `8080` | Port for the proxy server |
 
-### REPL (`llama run` only)
+### REPL / Prompt
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LLAMA_SYSTEM_PROMPT` | `You are a helpful assistant.` | System prompt for interactive mode |
+| `LLAMA_SYSTEM_PROMPT_FILE` | *(none)* | Path to file containing system prompt. Overrides `LLAMA_SYSTEM_PROMPT` when set and readable. If file is missing/unreadable, warns and falls back. |
+| `LLAMA_PROMPT_TEMPLATE_FILE` | *(none)* | Path to a Jinja2 chat template file. Passed as `--chat-template-file` to llama.cpp. Overrides `LLAMA_PROMPT_TEMPLATE` when set and file exists. |
+| `LLAMA_PROMPT_TEMPLATE` | *(none)* | Chat template string. Passed as `--chat-template` to llama.cpp. Overridden by `LLAMA_PROMPT_TEMPLATE_FILE`. |
+
+### Sampling Defaults
+
+These set default sampling parameters for both `llama serve` and `llama run`. When unset, llama.cpp's own defaults are used. For `llama serve`, clients can override these per-request via the API.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLAMA_TEMPERATURE` | *(llama.cpp default)* | Sampling temperature (e.g., `0.7`) |
+| `LLAMA_MAX_TOKENS` | *(llama.cpp default)* | Maximum response tokens (e.g., `2048`) |
+| `LLAMA_CTX_OVERFLOW` | `shift` | Context overflow behavior: `shift` (shift context window) or `stop` (stop generating). Maps to `--no-context-shift` when `stop`. |
+| `LLAMA_STOP` | *(none)* | Stop strings, comma-separated (e.g., `<\|end\|>,###`). **`llama run` only** — passed as `-r` (reverse prompt) flags. |
+| `LLAMA_TOP_K` | *(llama.cpp default)* | Top-k sampling (e.g., `40`) |
+| `LLAMA_REPEAT_PENALTY` | *(llama.cpp default)* | Repeat penalty (e.g., `1.1`) |
+| `LLAMA_PRESENCE_PENALTY` | *(llama.cpp default)* | Presence penalty (e.g., `0.0`) |
+| `LLAMA_TOP_P` | *(llama.cpp default)* | Top-p / nucleus sampling (e.g., `0.9`) |
+| `LLAMA_MIN_P` | *(llama.cpp default)* | Min-p sampling (e.g., `0.05`) |
 
 ### Download
 

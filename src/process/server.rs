@@ -134,7 +134,22 @@ mod tests {
     use std::path::Path;
 
     fn test_config() -> Config {
-        for key in ["LLAMA_BIN_DIR", "LLAMA_TENSOR_SPLIT"] {
+        for key in [
+            "LLAMA_BIN_DIR",
+            "LLAMA_TENSOR_SPLIT",
+            "LLAMA_SYSTEM_PROMPT_FILE",
+            "LLAMA_PROMPT_TEMPLATE_FILE",
+            "LLAMA_PROMPT_TEMPLATE",
+            "LLAMA_TEMPERATURE",
+            "LLAMA_MAX_TOKENS",
+            "LLAMA_CTX_OVERFLOW",
+            "LLAMA_STOP",
+            "LLAMA_TOP_K",
+            "LLAMA_REPEAT_PENALTY",
+            "LLAMA_PRESENCE_PENALTY",
+            "LLAMA_TOP_P",
+            "LLAMA_MIN_P",
+        ] {
             unsafe { std::env::remove_var(key) };
         }
         let mut config = Config::from_env();
@@ -145,6 +160,16 @@ mod tests {
         config.tensor_split = None;
         config.flash_attn = true;
         config.mlock = true;
+        config.chat_template = None;
+        config.temperature = None;
+        config.max_tokens = None;
+        config.ctx_overflow = "shift".to_string();
+        config.stop = vec![];
+        config.top_k = None;
+        config.repeat_penalty = None;
+        config.presence_penalty = None;
+        config.top_p = None;
+        config.min_p = None;
         config
     }
 

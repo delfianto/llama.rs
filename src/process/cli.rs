@@ -20,6 +20,12 @@ pub fn spawn_cli(config: &Config, model_path: &Path) -> anyhow::Result<StdProces
     flags.push(config.system_prompt.clone());
     flags.push("--color".to_string());
 
+    // Stop strings (reverse prompt)
+    for stop in &config.stop {
+        flags.push("-r".to_string());
+        flags.push(stop.clone());
+    }
+
     debug!("Spawning: {} {}", binary.display(), flags.join(" "));
 
     // Suppress llama.cpp's debug-level log output (token eval lines, etc.)
@@ -52,6 +58,12 @@ pub fn build_cli_args(config: &Config, model_path: &Path) -> Vec<String> {
     flags.push("-p".to_string());
     flags.push(config.system_prompt.clone());
     flags.push("--color".to_string());
+
+    for stop in &config.stop {
+        flags.push("-r".to_string());
+        flags.push(stop.clone());
+    }
+
     flags
 }
 
@@ -68,6 +80,18 @@ mod tests {
             "LLAMA_TENSOR_SPLIT",
             "LLAMA_FLASH_ATTN",
             "LLAMA_MLOCK",
+            "LLAMA_SYSTEM_PROMPT_FILE",
+            "LLAMA_PROMPT_TEMPLATE_FILE",
+            "LLAMA_PROMPT_TEMPLATE",
+            "LLAMA_TEMPERATURE",
+            "LLAMA_MAX_TOKENS",
+            "LLAMA_CTX_OVERFLOW",
+            "LLAMA_STOP",
+            "LLAMA_TOP_K",
+            "LLAMA_REPEAT_PENALTY",
+            "LLAMA_PRESENCE_PENALTY",
+            "LLAMA_TOP_P",
+            "LLAMA_MIN_P",
         ] {
             unsafe { std::env::remove_var(key) };
         }
@@ -81,6 +105,16 @@ mod tests {
         config.tensor_split = None;
         config.flash_attn = true;
         config.mlock = true;
+        config.chat_template = None;
+        config.temperature = None;
+        config.max_tokens = None;
+        config.ctx_overflow = "shift".to_string();
+        config.stop = vec![];
+        config.top_k = None;
+        config.repeat_penalty = None;
+        config.presence_penalty = None;
+        config.top_p = None;
+        config.min_p = None;
         config
     }
 
@@ -134,5 +168,30 @@ mod tests {
             m_idx < conv_idx,
             "common flags should come before REPL flags"
         );
+    }
+
+    #[test]
+    fn test_cli_flags_with_stop_strings() {
+        let mut config = test_config();
+        config.stop = vec!["<|end|>".to_string(), "###".to_string()];
+
+        let flags = build_cli_args(&config, Path::new("/models/test.gguf"));
+
+        let r_positions: Vec<usize> = flags
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| f.as_str() == "-r")
+            .map(|(i, _)| i)
+            .collect();
+        assert_eq!(r_positions.len(), 2);
+        assert_eq!(flags[r_positions[0] + 1], "<|end|>");
+        assert_eq!(flags[r_positions[1] + 1], "###");
+    }
+
+    #[test]
+    fn test_cli_flags_no_stop_when_empty() {
+        let config = test_config();
+        let flags = build_cli_args(&config, Path::new("/models/test.gguf"));
+        assert!(!flags.contains(&"-r".to_string()));
     }
 }
