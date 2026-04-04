@@ -28,6 +28,13 @@ fn scan_recursive(base: &Path, dir: &Path, results: &mut Vec<ModelInfo>) {
         if path.is_dir() {
             scan_recursive(base, &path, results);
         } else if path.extension().and_then(|e| e.to_str()) == Some("gguf") {
+            // Skip non-model GGUF files (e.g., mmproj vision projectors)
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                if stem.starts_with("mmproj") {
+                    continue;
+                }
+            }
+
             let relative = path
                 .strip_prefix(base)
                 .unwrap_or(&path)
