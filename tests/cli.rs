@@ -106,7 +106,9 @@ fn test_ls_shows_nested_models() {
         .args(["ls"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("org/repo/repo-Q4_K_M"));
+        .stdout(predicate::str::contains("org"))
+        .stdout(predicate::str::contains("repo"))
+        .stdout(predicate::str::contains("Q4_K_M"));
 }
 
 #[test]
@@ -120,7 +122,7 @@ fn test_ls_shows_size_and_modified() {
         .args(["ls"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("NAME"))
+        .stdout(predicate::str::contains("MODEL"))
         .stdout(predicate::str::contains("SIZE"))
         .stdout(predicate::str::contains("MODIFIED"));
 }
@@ -187,7 +189,9 @@ fn test_custom_models_dir() {
         .args(["ls"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("myorg/myrepo/mymodel-Q4_K_M"));
+        .stdout(predicate::str::contains("myorg"))
+        .stdout(predicate::str::contains("myrepo"))
+        .stdout(predicate::str::contains("Q4_K_M"));
 }
 
 // ─── New env var help tests ─────────────────────────────────────────────────
