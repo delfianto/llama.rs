@@ -22,6 +22,7 @@ cargo fmt --check                    # format check
 ```
 
 **Quality gate** (must pass before every commit):
+
 ```bash
 cargo fmt --check && cargo clippy -- -D warnings && cargo test
 ```
@@ -31,20 +32,20 @@ cargo fmt --check && cargo clippy -- -D warnings && cargo test
 See `docs/ARCHITECTURE.md` for full details. Key layers:
 
 ```
-┌─────────────────────────────────────────────┐
-│  CLI (clap)                                 │
-│  llama run | serve | pull | ls | rm         │
-├─────────────────────────────────────────────┤
-│  Config (env vars + defaults)               │
-├──────────────┬──────────────────────────────┤
-│  Process Mgr │  Download Mgr │  Model Mgr  │
-│  (spawn      │  (HuggingFace │  (list/rm    │
-│   llama-cpp) │   parallel)   │   GGUFs)     │
-├──────────────┴──────────────────────────────┤
-│  API Proxy Layer (axum)                     │
-│  ├─ /v1/*          OpenAI passthrough (SSE) │
+┌──────────────────────────────────────────────┐
+│  CLI (clap)                                  │
+│  llama run | serve | pull | ls | rm          │
+├──────────────────────────────────────────────┤
+│  Config (env vars + defaults)                │
+├──────────────┬───────────────┬───────────────┤
+│  Process Mgr │  Download Mgr │  Model Mgr    │
+│  (spawn      │  (HuggingFace │  (list/rm     │
+│   llama-cpp) │   parallel)   │   GGUFs)      │
+├──────────────┴───────────────┴───────────────┤
+│  API Proxy Layer (axum)                      │
+│  ├─ /v1/*          OpenAI passthrough (SSE)  │
 │  └─ /api/*         Ollama translation(NDJSON)│
-└─────────────────────────────────────────────┘
+└──────────────────────────────────────────────┘
 ```
 
 - **Child process model**: llama-server/llama-cli are spawned as subprocesses, not linked via FFI
@@ -71,6 +72,7 @@ See `docs/ARCHITECTURE.md` for full details. Key layers:
 ## Documentation
 
 Detailed documentation lives in `docs/`:
+
 - `ARCHITECTURE.md` — full system design
 - `DEPENDENCIES.md` — crate choices and rationale
 - `CONFIG_REFERENCE.md` — all env vars and CLI args
