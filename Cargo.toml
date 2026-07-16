@@ -52,7 +52,7 @@ requestty = "0.6"
 # Utilities
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
-bytesize = "1"
+bytesize = "2"
 nix = { version = "0.31", features = ["signal", "process"] }
 tokio-util = { version = "0.7", features = ["io"] }
 which = "8"
