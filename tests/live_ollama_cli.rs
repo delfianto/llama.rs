@@ -1,3 +1,6 @@
+#![allow(clippy::unwrap_used)]
+//! Integration test — panicking on unexpected setup/response failures is expected here.
+
 //! Integration tests that use the real `ollama` CLI binary to validate
 //! our Ollama API emulation layer.
 //!
@@ -5,7 +8,7 @@
 //!   1. llama-server running on localhost:8080
 //!   2. ollama binary at /opt/homebrew/bin/ollama
 //!
-//! Run with: cargo test --test live_ollama_cli
+//! Run with: cargo test --test `live_ollama_cli`
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -30,9 +33,10 @@ async fn require_deps() {
         _ => panic!("llama-server not reachable at {LLAMA_SERVER_URL}"),
     }
 
-    if !std::path::Path::new(OLLAMA_BIN).exists() {
-        panic!("ollama binary not found at {OLLAMA_BIN}");
-    }
+    assert!(
+        std::path::Path::new(OLLAMA_BIN).exists(),
+        "ollama binary not found at {OLLAMA_BIN}"
+    );
 }
 
 async fn get_model_name() -> String {
@@ -80,9 +84,9 @@ async fn ollama_with_timeout(
     timeout_secs: u64,
 ) -> Option<std::process::Output> {
     let addr_str = format!("http://{addr}");
-    let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+    let args: Vec<String> = args.iter().map(std::string::ToString::to_string).collect();
 
-    let result = tokio::time::timeout(Duration::from_secs(timeout_secs), async move {
+    tokio::time::timeout(Duration::from_secs(timeout_secs), async move {
         tokio::task::spawn_blocking(move || {
             std::process::Command::new(OLLAMA_BIN)
                 .args(&args)
@@ -98,9 +102,7 @@ async fn ollama_with_timeout(
     })
     .await
     .ok()
-    .flatten();
-
-    result
+    .flatten()
 }
 
 fn stdout_str(output: &std::process::Output) -> String {

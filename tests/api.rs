@@ -1,3 +1,6 @@
+#![allow(clippy::unwrap_used)]
+//! Integration test — panicking on unexpected setup/response failures is expected here.
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -39,7 +42,7 @@ async fn start_sse_mock(chunks: Vec<&'static str>) -> SocketAddr {
                 let stream = async_stream::stream! {
                     for chunk in chunks {
                         yield Ok::<_, std::convert::Infallible>(
-                            Event::default().data(chunk.to_string())
+                            Event::default().data(chunk)
                         );
                         tokio::time::sleep(Duration::from_millis(10)).await;
                     }
@@ -465,7 +468,7 @@ async fn test_openwebui_ollama_request() {
     assert_eq!(content_line.unwrap()["message"]["content"], "Hi");
 }
 
-/// Test with a real LibreChat-style OpenAI chat request payload.
+/// Test with a real LibreChat-style `OpenAI` chat request payload.
 #[tokio::test]
 async fn test_librechat_openai_request() {
     let payload: serde_json::Value =
@@ -495,10 +498,10 @@ async fn test_librechat_openai_request() {
     assert!(ct.contains("text/event-stream"));
 
     let body = resp.text().await.unwrap();
-    assert!(body.contains("4"), "Should contain response content");
+    assert!(body.contains('4'), "Should contain response content");
 }
 
-/// OpenWebUI also queries /api/tags to discover models.
+/// `OpenWebUI` also queries /api/tags to discover models.
 #[tokio::test]
 async fn test_openwebui_tags_discovery() {
     let mock_server = MockServer::start().await;
@@ -513,7 +516,7 @@ async fn test_openwebui_tags_discovery() {
     assert!(!body["models"].as_array().unwrap().is_empty());
 }
 
-/// LibreChat queries /v1/models to discover models.
+/// `LibreChat` queries /v1/models to discover models.
 #[tokio::test]
 async fn test_librechat_models_discovery() {
     let mock_server = MockServer::start().await;
@@ -531,7 +534,7 @@ async fn test_librechat_models_discovery() {
 
 // ─── Edge case tests ─────────────────────────────────────────────────────────
 
-/// Non-streaming Ollama /api/chat with options (temperature, top_p).
+/// Non-streaming Ollama /api/chat with options (temperature, `top_p`).
 #[tokio::test]
 async fn test_ollama_chat_with_options() {
     let mock_server = MockServer::start().await;

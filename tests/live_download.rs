@@ -1,9 +1,12 @@
-//! Integration tests for the HuggingFace download manager using a real model.
+#![allow(clippy::unwrap_used)]
+//! Integration test — panicking on unexpected setup/response failures is expected here.
+
+//! Integration tests for the `HuggingFace` download manager using a real model.
 //!
 //! Downloads Mozilla/llama-test-model:tiny-llama (~27KB) — small enough
 //! to run in CI without concern.
 //!
-//! Run with: cargo test --test live_download
+//! Run with: cargo test --test `live_download`
 
 use std::fs;
 

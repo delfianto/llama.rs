@@ -130,6 +130,7 @@ fn is_quant_start(bytes: &[u8], i: usize) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

@@ -1,9 +1,12 @@
+#![allow(clippy::unwrap_used)]
+//! Integration test — panicking on unexpected setup/response failures is expected here.
+
 //! Integration tests that run against a real llama-server on localhost:8080.
 //!
 //! These tests require a running llama-server:
 //!   llama-server -m model.gguf --port 8080
 //!
-//! Run with: cargo test --test live_server
+//! Run with: cargo test --test `live_server`
 //!
 //! They are NOT marked #[ignore] so they run as part of the normal test suite
 //! when the server is available. They fail fast with a clear message if not.
@@ -408,7 +411,7 @@ async fn test_openai_passthrough_preserves_extra_fields() {
     assert!(
         body["system_fingerprint"].as_str().is_some()
             || body["system_fingerprint"].is_null()
-            || !body.get("system_fingerprint").is_some(),
+            || body.get("system_fingerprint").is_none(),
         "system_fingerprint passthrough"
     );
     // Timings field from llama-server should be present (not stripped by proxy)

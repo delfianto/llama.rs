@@ -128,6 +128,7 @@ pub async fn shutdown_server(state: &mut ServerState, timeout: std::time::Durati
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 #[allow(unsafe_code)]
 mod tests {
     use super::*;

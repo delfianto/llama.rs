@@ -68,6 +68,7 @@ pub fn build_cli_args(config: &Config, model_path: &Path) -> Vec<String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 #[allow(unsafe_code)]
 mod tests {
     use super::*;

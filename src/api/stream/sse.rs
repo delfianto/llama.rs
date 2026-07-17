@@ -87,6 +87,7 @@ pub enum SseEvent {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -104,8 +105,8 @@ mod tests {
         let input = "data: {\"content\":\"A\"}\n\ndata: {\"content\":\"B\"}\n\n";
         let (events, remaining) = parse_sse_buffer(input);
         assert_eq!(events.len(), 2);
-        assert!(matches!(&events[0], SseEvent::Data(d) if d.contains("A")));
-        assert!(matches!(&events[1], SseEvent::Data(d) if d.contains("B")));
+        assert!(matches!(&events[0], SseEvent::Data(d) if d.contains('A')));
+        assert!(matches!(&events[1], SseEvent::Data(d) if d.contains('B')));
         assert!(remaining.is_empty());
     }
 
