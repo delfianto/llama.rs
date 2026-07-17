@@ -233,6 +233,7 @@ fn build_client(hf_token: Option<&str>) -> anyhow::Result<reqwest::Client> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use tempfile::TempDir;

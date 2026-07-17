@@ -62,9 +62,7 @@ impl Config {
     /// Load configuration from environment variables with sensible defaults.
     pub fn from_env() -> Self {
         #[allow(clippy::cast_possible_truncation)]
-        let default_threads = std::thread::available_parallelism()
-            .map(|n| n.get() as u32)
-            .unwrap_or(8);
+        let default_threads = std::thread::available_parallelism().map_or(8, |n| n.get() as u32);
 
         let default_models_dir = dirs::data_dir().map_or_else(
             || {
@@ -275,6 +273,7 @@ fn env_bool(key: &str, default: bool) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 #[allow(unsafe_code)]
 mod tests {
     use super::*;

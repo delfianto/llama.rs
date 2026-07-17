@@ -180,7 +180,7 @@ fn prompt_select_model(files: &[PathBuf], models_dir: &Path) -> anyhow::Result<P
                 .to_string();
             let parsed = parse_model_display(&display_name);
 
-            let size = std::fs::metadata(f).map(|m| m.len()).unwrap_or(0);
+            let size = std::fs::metadata(f).map_or(0, |m| m.len());
             let size_str = crate::model::format_size(size);
 
             if parsed.quant.is_empty() {
@@ -254,6 +254,7 @@ fn find_gguf_by_quant(dir: &Path, quant: &str) -> Option<PathBuf> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::fs;

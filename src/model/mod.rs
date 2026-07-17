@@ -141,6 +141,7 @@ pub fn format_relative_time(time: SystemTime) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::fs;
@@ -187,7 +188,7 @@ mod tests {
         let models = scan_models(tmp.path()).unwrap();
         let names: Vec<&str> = models.iter().map(|m| m.name.as_str()).collect();
         let mut sorted = names.clone();
-        sorted.sort();
+        sorted.sort_unstable();
         assert_eq!(names, sorted);
     }
 

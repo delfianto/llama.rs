@@ -1,3 +1,6 @@
+#![allow(clippy::unwrap_used)]
+//! Integration test — panicking on unexpected setup/response failures is expected here.
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 

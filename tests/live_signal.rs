@@ -1,3 +1,6 @@
+#![allow(clippy::unwrap_used)]
+//! Integration test — panicking on unexpected setup/response failures is expected here.
+
 //! Integration tests for signal handling (Ctrl+C / SIGINT).
 //!
 //! Tests that:
@@ -6,7 +9,7 @@
 //!
 //! Requires llama-server running on localhost:8080.
 //!
-//! Run with: cargo test --test live_signal
+//! Run with: cargo test --test `live_signal`
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -86,10 +89,12 @@ Your answer must be extremely thorough and detailed, at least 2000 words.";
 // Streaming interruption tests (via HTTP — cancel the connection mid-stream)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Start a long streaming generation via OpenAI API, read a few chunks,
+/// Start a long streaming generation via `OpenAI` API, read a few chunks,
 /// then drop the connection. The server should handle the cancellation gracefully.
 #[tokio::test]
 async fn test_openai_streaming_cancel_mid_generation() {
+    use futures::StreamExt;
+
     require_server().await;
     let addr = start_proxy().await;
 
@@ -117,7 +122,6 @@ async fn test_openai_streaming_cancel_mid_generation() {
     let mut chunks_received = 0;
     let mut total_bytes = 0;
 
-    use futures::StreamExt;
     while let Some(chunk) = stream.next().await {
         match chunk {
             Ok(bytes) => {
@@ -153,6 +157,8 @@ async fn test_openai_streaming_cancel_mid_generation() {
 /// Same test but via Ollama NDJSON streaming.
 #[tokio::test]
 async fn test_ollama_streaming_cancel_mid_generation() {
+    use futures::StreamExt;
+
     require_server().await;
     let addr = start_proxy().await;
 
@@ -175,7 +181,6 @@ async fn test_ollama_streaming_cancel_mid_generation() {
     let mut chunks_received = 0;
     let mut total_bytes = 0;
 
-    use futures::StreamExt;
     while let Some(chunk) = stream.next().await {
         match chunk {
             Ok(bytes) => {
@@ -260,12 +265,13 @@ async fn test_non_streaming_cancel() {
 #[cfg(unix)]
 #[tokio::test]
 async fn test_sigint_forwarded_to_child() {
+    use std::process::Command;
+
     require_server().await;
 
     // We can't easily test `llama run` end-to-end (needs a model file for llama-cli),
     // but we CAN test the signal forwarding mechanism by spawning a simple child
     // process and verifying SIGINT reaches it.
-    use std::process::Command;
 
     // Spawn `sleep 60` as a stand-in for llama-cli
     let mut child = Command::new("sleep").arg("60").spawn().unwrap();
@@ -309,7 +315,7 @@ async fn test_serve_sigint_shutdown() {
 
     // Start a long streaming request
     let client = reqwest::Client::new();
-    let _resp = client
+    let resp = client
         .post(format!("http://{addr}/v1/chat/completions"))
         .header("content-type", "application/json")
         .body(
@@ -330,7 +336,7 @@ async fn test_serve_sigint_shutdown() {
 
     // Drop all connections — simulates the client going away
     // The server should handle this gracefully without panicking
-    drop(_resp);
+    drop(resp);
 
     tokio::time::sleep(Duration::from_millis(200)).await;
 

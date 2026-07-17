@@ -46,6 +46,7 @@ pub async fn wait_for_ready(base_url: &str, timeout: Duration) -> anyhow::Result
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use wiremock::matchers::method;

@@ -212,6 +212,7 @@ pub fn display_name_from_path(relative_path: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::path::Path;

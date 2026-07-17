@@ -212,6 +212,7 @@ fn build_generate_done_line(model: &str, reason: Option<&str>) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

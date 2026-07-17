@@ -271,6 +271,7 @@ pub fn openai_to_ollama_generate(resp: &serde_json::Value, model: &str) -> Ollam
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use serde_json::json;
