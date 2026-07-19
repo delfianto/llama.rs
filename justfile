@@ -12,9 +12,10 @@ default:
 build:
     cargo build --release
 
-# Run unit and mock tests (no live server needed)
+# Run unit and mock tests (no live server needed).
+# Single-threaded: config tests mutate process env and race under --test-threads>1.
 test:
-    cargo test --lib --test cli --test api
+    cargo test --lib --test cli --test api -- --test-threads=1
 
 # Run live integration tests against llama-server on localhost:8080
 test-live:
