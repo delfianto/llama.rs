@@ -2,7 +2,7 @@
 
 ## Overview
 
-llama.rs is a Rust CLI that wraps llama.cpp binaries in an Ollama-like interface. It spawns `llama-server` or `llama-cli` as child processes, manages model files, and exposes both OpenAI-compatible and Ollama-compatible HTTP APIs.
+llama.rs is a Rust CLI that wraps ik_llama.cpp or upstream llama.cpp binaries in an Ollama-like interface. It spawns `llama-server` or `llama-cli` as child processes, manages model files, and exposes both OpenAI-compatible and Ollama-compatible HTTP APIs.
 
 ## Directory / Module Structure
 
@@ -64,7 +64,7 @@ llama rm <model>        Delete a model (stops running process first)
 
 ### 2. Config Layer (`config/`)
 
-All configuration via environment variables with sensible defaults, matching the original shell script. No config files — env vars are Docker-native.
+Configuration starts with environment variables and sensible defaults. For `run` and `serve`, an optional typed YAML execution profile is then overlaid, followed by explicit CLI overrides. This keeps environment-driven Docker usage while supporting repeatable local experiments.
 
 See `CONFIG_REFERENCE.md` for the full list.
 
@@ -75,7 +75,7 @@ Config is loaded once at startup into an immutable `Config` struct, passed by `A
 Core responsibility: spawn llama.cpp binaries as child processes and manage their lifecycle.
 
 **For `llama serve`:**
-1. Spawn `llama-server` with flags built from Config (GPU layers, tensor split, context size, etc.)
+1. Spawn `llama-server` with flags built from Config (compute device, GPU layers, tensor split, context size, etc.)
 2. Poll `/health` endpoint until llama-server is ready
 3. Start the axum proxy server on the configured host:port
 4. Forward signals (SIGINT/SIGTERM) to the child process for clean shutdown

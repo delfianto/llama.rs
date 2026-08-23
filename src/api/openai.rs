@@ -14,6 +14,7 @@ use super::types::{ModelListResponse, ModelObject};
 /// transformation. The response (including status code, headers, and body)
 /// is relayed back verbatim. This ensures full compatibility with any
 /// OpenAI client — whatever the frontend sends, llama.cpp receives unchanged.
+#[allow(clippy::result_large_err)]
 pub async fn chat_completions(
     State(state): State<AppState>,
     body: Bytes,

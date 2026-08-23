@@ -15,9 +15,10 @@ All configuration is via environment variables, matching the original `llama.sh`
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `LLAMA_DEVICE` | `auto` | Compute resource. Accepts `cpu`, `gpu0`, `gpu1`, native backend names such as `CUDA0` or `Vulkan0`, and comma-separated device lists. `gpuN` is shorthand for ik_llama.cpp's `CUDAN`. |
 | `LLAMA_GPU_LAYERS` | `999` | Number of layers to offload to GPU (999 = all) |
 | `LLAMA_TENSOR_SPLIT` | *(none)* | VRAM ratio per GPU, comma-separated (e.g., `14,12`) |
-| `LLAMA_MAIN_GPU` | `0` | Primary GPU device index |
+| `LLAMA_MAIN_GPU` | *(llama.cpp default)* | Optional primary GPU device index. Only emitted when explicitly set. |
 | `LLAMA_FLASH_ATTN` | `1` | Flash attention: `1` = on, `0` = off |
 | `LLAMA_MLOCK` | `1` | Lock model in RAM to prevent swap: `1` = on, `0` = off |
 
@@ -78,14 +79,72 @@ These set default sampling parameters for both `llama serve` and `llama run`. Wh
 ## CLI Commands
 
 ```
-llama run <model>                      Start interactive REPL
-llama serve <model>                    Start API server
+llama run [<model>] [-c FILE] [--device DEVICE]    Start interactive REPL
+llama serve [<model>] [-c FILE] [--device DEVICE]  Start API server
 llama pull <org/repo:quant>            Download GGUF from HuggingFace
 llama ls                               List downloaded models
 llama rm <model>                       Delete a model
 llama --help                           Show help
 llama --version                        Show version
 ```
+
+### YAML Execution Profiles
+
+`llama run` and `llama serve` accept `--config FILE` (or `-c FILE`). The profile is overlaid on environment-derived configuration. A positional model and `--device` take final precedence, which makes it easy to reuse a profile while changing only the model or GPU.
+
+```yaml
+model: /models/Qwen3-30B-A3B-IQ4_XS.gguf
+
+paths:
+  bin_dir: /opt/ik_llama.cpp/build/bin
+  models_dir: /models
+
+compute:
+  device: gpu1                 # cpu, gpu0, gpu1, CUDA0, Vulkan0, ...
+  gpu_layers: 999
+  tensor_split: 1,1
+  main_gpu: 0
+  flash_attention: true
+  mlock: true
+
+inference:
+  context_size: 65536
+  batch_size: 4096
+  threads: 12
+
+server:
+  host: 127.0.0.1
+  port: 8080
+
+prompt:
+  system: You are a concise assistant.
+  # system_file: prompts/system.txt
+  # chat_template: chatml
+  # chat_template_file: templates/model.jinja
+  stop: ["<|end|>"]
+
+sampling:
+  temperature: 0.6
+  max_tokens: 4096
+  context_overflow: shift       # shift or stop
+  top_k: 20
+  top_p: 0.95
+  min_p: 0.05
+  repeat_penalty: 1.1
+  presence_penalty: 0.0
+
+extra_args:
+  - --cache-type-k
+  - q8_0
+  - --cache-type-v
+  - q8_0
+  - --split-mode
+  - graph
+```
+
+Relative paths in `paths`, `system_file`, and `chat_template_file` resolve from the YAML file's directory. `extra_args` is passed directly as individual process arguments without shell evaluation. Generated internal server `--host` and `--port` arguments are appended afterward and cannot be replaced through `extra_args`.
+
+The complete commented example is in [`examples/ik-llama.yaml`](../examples/ik-llama.yaml).
 
 ### Model Directory Structure
 
@@ -119,6 +178,15 @@ llama serve mradermacher/L3.3-70B-Euryale-v2.3-heretic-i1-GGUF/model.gguf
 
 # Absolute path
 llama run /mnt/nvme/models/phi-4.gguf
+
+# CPU-only (forces --n-gpu-layers 0 and ignores GPU placement settings)
+llama run qwen3-14b-q4_k_m.gguf --device cpu
+
+# Pin ik_llama.cpp offload to the second CUDA GPU (--device CUDA1)
+llama serve qwen3-14b-q4_k_m.gguf --device gpu1
+
+# Use selected devices for multi-GPU offload
+LLAMA_TENSOR_SPLIT=1,1 llama serve qwen3-14b-q4_k_m.gguf --device gpu0,gpu2
 
 # Download a model
 llama pull mradermacher/L3.3-70B-Euryale-v2.3-heretic-i1-GGUF:Q4_K_M
