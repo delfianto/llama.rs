@@ -97,6 +97,10 @@ An axum HTTP server that sits in front of the llama-server subprocess.
 - Non-streaming: forward request, await response, relay back
 - Streaming: forward request, relay SSE chunks as-is (`data: {json}\n\n` + `data: [DONE]\n\n`)
 
+**llama.cpp Web UI and native endpoints**:
+- `/` — proxy llama-server's built-in Web UI
+- Unmatched paths — passthrough static UI assets and llama.cpp-specific APIs
+
 **Ollama-compatible endpoints** (`/api/*`):
 - `/api/chat` — translate request to OpenAI format, proxy to llama-server, translate response back
 - `/api/generate` — same pattern for raw completions
@@ -154,7 +158,8 @@ Scans `$LLAMA_MODELS_DIR` for `.gguf` files recursively.
 - `anyhow::Result` for CLI commands and top-level flows
 - `thiserror` enums for typed errors in library modules (`download::Error`, `process::Error`)
 - Errors are logged via `tracing` and surfaced to the user with context
-- Child process failures include stderr capture for debugging
+- `llama-server` output is inherited by the terminal so loading progress and failures remain visible
+- Server startup watches both the health endpoint and child-process exit status
 
 ## What This Is NOT
 

@@ -8,8 +8,7 @@ use crate::config::Config;
 use crate::config::resolve::resolve_model_path;
 use crate::error::LlamaError;
 use crate::error::output;
-use crate::process::health::wait_for_ready;
-use crate::process::server::{shutdown_server, spawn_server};
+use crate::process::server::{shutdown_server, spawn_server, wait_until_ready};
 
 /// Execute the `llama serve` command — start API server via llama-server.
 pub async fn exec(config: &Config, model: &str) -> anyhow::Result<()> {
@@ -45,7 +44,10 @@ pub async fn exec(config: &Config, model: &str) -> anyhow::Result<()> {
 
     let mut server_state = spawn_server(config, &model_path).await?;
 
-    wait_for_ready(&server_state.internal_url, Duration::from_secs(120)).await?;
+    if let Err(error) = wait_until_ready(&mut server_state, Duration::from_secs(120)).await {
+        shutdown_server(&mut server_state, Duration::from_secs(5)).await;
+        return Err(error);
+    }
     output::success("Model loaded!");
 
     // Build axum proxy

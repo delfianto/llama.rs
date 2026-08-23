@@ -1,11 +1,13 @@
 use std::path::Path;
+use std::time::Duration;
 
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tracing::{debug, warn};
 
 use super::AsyncProcessHandle;
 use crate::config::Config;
+use crate::error::LlamaError;
+use crate::process::health::wait_for_ready;
 
 /// State for a running llama-server instance.
 pub struct ServerState {
@@ -26,7 +28,8 @@ pub fn find_free_port() -> anyhow::Result<u16> {
 
 /// Spawn llama-server as an async child process on a random free port.
 ///
-/// Captures stderr and forwards it to `tracing::debug!`.
+/// The child's output is inherited so model-loading progress, warnings, and
+/// errors remain visible in the terminal.
 pub async fn spawn_server(config: &Config, model_path: &Path) -> anyhow::Result<ServerState> {
     let binary = config.find_binary("llama-server")?;
     let internal_port = find_free_port()?;
@@ -46,45 +49,44 @@ pub async fn spawn_server(config: &Config, model_path: &Path) -> anyhow::Result<
     let mut cmd = Command::new(&binary);
     cmd.args(&flags)
         .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .kill_on_drop(true);
 
     // Suppress verbose llama.cpp logging unless user explicitly set it
     if std::env::var("LLAMA_LOG_VERBOSITY").is_err() {
         cmd.env("LLAMA_LOG_VERBOSITY", "0");
     }
 
-    let mut child = cmd.spawn()?;
+    let child = cmd.spawn()?;
 
     let pid = child.id().unwrap_or(0);
-
-    // Spawn background task to log stderr
-    if let Some(stderr) = child.stderr.take() {
-        tokio::spawn(async move {
-            let reader = BufReader::new(stderr);
-            let mut lines = reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                debug!(target: "llama_server", "{line}");
-            }
-        });
-    }
-
-    // Spawn background task to log stdout
-    if let Some(stdout) = child.stdout.take() {
-        tokio::spawn(async move {
-            let reader = BufReader::new(stdout);
-            let mut lines = reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                debug!(target: "llama_server", "{line}");
-            }
-        });
-    }
 
     Ok(ServerState {
         handle: AsyncProcessHandle { child, pid },
         internal_url,
         internal_port,
     })
+}
+
+/// Wait for llama-server's health endpoint while also watching the child.
+///
+/// A startup failure is returned as soon as the process exits instead of
+/// leaving the user waiting for the health-check timeout.
+pub async fn wait_until_ready(state: &mut ServerState, timeout: Duration) -> anyhow::Result<()> {
+    let internal_url = state.internal_url.clone();
+
+    tokio::select! {
+        result = wait_for_ready(&internal_url, timeout) => result,
+        result = state.handle.child.wait() => {
+            let status = result.map_err(|error| LlamaError::ServerStartFailed {
+                reason: format!("could not wait for process: {error}"),
+            })?;
+            Err(LlamaError::ServerStartFailed {
+                reason: format!("process exited before becoming ready ({status})"),
+            }.into())
+        }
+    }
 }
 
 /// Build the full argument list that `spawn_server` would use (for testing).
@@ -105,6 +107,17 @@ pub async fn shutdown_server(state: &mut ServerState, timeout: std::time::Durati
     let pid = state.handle.pid;
     if pid == 0 {
         return;
+    }
+
+    match state.handle.child.try_wait() {
+        Ok(Some(_)) => {
+            debug!("llama-server already exited");
+            return;
+        }
+        Ok(None) => {}
+        Err(error) => {
+            warn!("Could not check llama-server status before shutdown: {error}");
+        }
     }
 
     // Send SIGTERM
@@ -223,5 +236,26 @@ mod tests {
         let flags = build_server_args(&config, Path::new("/models/test.gguf"), 8080);
         let m_idx = flags.iter().position(|f| f == "-m").expect("has -m");
         assert_eq!(flags[m_idx + 1], "/models/test.gguf");
+    }
+
+    #[tokio::test]
+    async fn test_wait_until_ready_reports_early_process_exit() {
+        let child = Command::new("sh")
+            .args(["-c", "exit 23"])
+            .spawn()
+            .expect("spawn test child");
+        let pid = child.id().unwrap_or(0);
+        let mut state = ServerState {
+            handle: AsyncProcessHandle { child, pid },
+            internal_url: "http://127.0.0.1:1".to_string(),
+            internal_port: 1,
+        };
+
+        let error = wait_until_ready(&mut state, Duration::from_secs(10))
+            .await
+            .expect_err("early child exit should fail startup");
+
+        assert!(error.to_string().contains("before becoming ready"));
+        assert!(error.to_string().contains("23"));
     }
 }

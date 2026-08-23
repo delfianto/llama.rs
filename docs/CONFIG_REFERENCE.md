@@ -75,6 +75,7 @@ These set default sampling parameters for both `llama serve` and `llama run`. Wh
 |----------|---------|-------------|
 | `LLAMA_LOG` | `info` | Log level: `trace`, `debug`, `info`, `warn`, `error` |
 | `RUST_LOG` | *(none)* | Fine-grained tracing filter (overrides `LLAMA_LOG` if set) |
+| `LLAMA_LOG_VERBOSITY` | `0` | llama.cpp engine verbosity; set a higher value for detailed engine logs |
 
 ## CLI Commands
 

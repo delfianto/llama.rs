@@ -2,6 +2,7 @@ pub mod ollama;
 pub mod openai;
 pub mod stream;
 pub mod types;
+pub mod upstream;
 
 use std::sync::Arc;
 
@@ -29,8 +30,9 @@ pub struct AppState {
 /// Build the axum router with all API routes.
 pub fn build_router(state: AppState) -> Router {
     Router::new()
-        // Root — ollama CLI does HEAD / as connectivity check
-        .route("/", head(root_head).get(root_get))
+        // Root serves llama.cpp's built-in UI; Ollama uses HEAD as a
+        // connectivity check and only needs a successful status.
+        .route("/", head(root_head).get(upstream::proxy))
         // OpenAI-compatible
         .route("/v1/chat/completions", post(openai::chat_completions))
         .route("/v1/models", get(openai::list_models))
@@ -42,6 +44,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/version", get(ollama::version))
         // Health
         .route("/health", get(health))
+        // Static UI assets and llama.cpp-specific endpoints not translated by
+        // this wrapper are relayed unchanged to the internal server.
+        .fallback(upstream::proxy)
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
@@ -53,9 +58,4 @@ async fn health(State(_state): State<AppState>) -> impl IntoResponse {
 /// `HEAD /` — ollama CLI connectivity check.
 async fn root_head() -> impl IntoResponse {
     StatusCode::OK
-}
-
-/// `GET /` — ollama CLI might also GET /.
-async fn root_get() -> &'static str {
-    "llama.rs is running"
 }
