@@ -43,19 +43,20 @@ See `docs/architecture.md` for full details. Key layers:
 │   llama-cpp) │   parallel)   │   GGUFs)      │
 ├──────────────┴───────────────┴───────────────┤
 │  API Proxy Layer (axum)                      │
-│  ├─ /v1/*          OpenAI passthrough (SSE)  │
+│  ├─ / + fallback   llama.cpp UI passthrough  │
+│  ├─ /v1/*          OpenAI body passthrough   │
 │  └─ /api/*         Ollama translation(NDJSON)│
 └──────────────────────────────────────────────┘
 ```
 
 - **Child process model**: llama-server/llama-cli are spawned as subprocesses, not linked via FFI
-- **Axum** for the HTTP server with native SSE support
+- **Axum** for the public HTTP server and streaming response bodies
 - **Two API surfaces**: OpenAI-compatible (SSE passthrough from llama-server) and Ollama-compatible (NDJSON translation)
-- **tokio::sync::mpsc** channels decouple inference subprocess output from HTTP response streams
+- **Generic passthrough** exposes llama.cpp's built-in UI and native routes
 
 ## Code Conventions
 
-- Rust 2021 edition, MSRV 1.75+
+- Rust 2024 edition, MSRV 1.85+
 - `anyhow` for application errors, `thiserror` for library-style errors in public APIs
 - All async code on tokio runtime
 - No `unwrap()` in non-test code — use `?` or `.expect("reason")`
@@ -74,5 +75,6 @@ See `docs/architecture.md` for full details. Key layers:
 Detailed documentation lives in `docs/`:
 
 - `architecture.md` — full system design
-- `dependencies.md` — crate choices and rationale
-- `config_reference.md` — all env vars and CLI args
+- `usage.md` — installation, commands, model management, and troubleshooting
+- `configuration.md` — environment variables, YAML profiles, and engine arguments
+- `api.md` — web UI and OpenAI/Ollama-compatible endpoints

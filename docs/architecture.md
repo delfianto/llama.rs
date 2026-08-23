@@ -1,170 +1,156 @@
 # Architecture
 
-## Overview
+`llama.rs` is a process wrapper and HTTP compatibility layer. Inference remains
+inside an installed ik_llama.cpp or llama.cpp binary; the Rust application does
+not use FFI or implement model execution.
 
-llama.rs is a Rust CLI that wraps ik_llama.cpp or upstream llama.cpp binaries in an Ollama-like interface. It spawns `llama-server` or `llama-cli` as child processes, manages model files, and exposes both OpenAI-compatible and Ollama-compatible HTTP APIs.
+## Runtime shape
 
-## Directory / Module Structure
-
+```text
+CLI/configuration
+      |
+      +-- llama run ----> llama-cli <----> terminal
+      |
+      +-- llama serve --> llama-server on random loopback port
+                              ^
+                              |
+                         Axum public proxy
+                         |       |       |
+                      Web UI  OpenAI  Ollama translation
 ```
+
+There is one model and one child engine per invocation. The separation keeps the
+wrapper independent of llama.cpp's ABI and allows users to replace the binaries
+without rebuilding Rust code.
+
+## Source layout
+
+```text
 src/
-├── main.rs              # Entry point, clap CLI definition
+├── main.rs              clap definitions, configuration preparation, dispatch
+├── lib.rs               library module exports
 ├── cli/
-│   ├── mod.rs           # CLI command dispatch
-│   ├── run.rs           # `llama run <model>` — interactive REPL
-│   ├── serve.rs         # `llama serve <model>` — start API server
-│   ├── pull.rs          # `llama pull <org/repo> <file>` — download model
-│   ├── ls.rs            # `llama ls` — list models
-│   └── rm.rs            # `llama rm <model>` — delete model
+│   ├── run.rs           interactive llama-cli lifecycle
+│   ├── serve.rs         engine startup and public HTTP lifecycle
+│   ├── pull.rs          Hugging Face model selection/download command
+│   ├── ls.rs            local model listing
+│   └── rm.rs            process detection and model removal
 ├── config/
-│   ├── mod.rs           # Config struct, env var loading, defaults
-│   └── resolve.rs       # Model path resolution (relative → absolute)
+│   ├── mod.rs           environment defaults and llama.cpp flag construction
+│   ├── yaml.rs          typed YAML profile overlay
+│   └── resolve.rs       model-name and path resolution
 ├── process/
-│   ├── mod.rs           # ProcessManager trait
-│   ├── server.rs        # Spawn & manage llama-server subprocess
-│   ├── cli.rs           # Spawn & manage llama-cli subprocess (REPL)
-│   └── health.rs        # Health check / readiness polling for llama-server
+│   ├── cli.rs           llama-cli spawn and signal behavior
+│   ├── server.rs        llama-server spawn, shutdown, and child status
+│   └── health.rs        upstream readiness requests
 ├── api/
-│   ├── mod.rs           # Axum router construction
-│   ├── openai.rs        # /v1/chat/completions, /v1/models — passthrough proxy
-│   ├── ollama.rs        # /api/chat, /api/generate, /api/tags — Ollama translation
-│   ├── stream/
-│   │   ├── mod.rs       # Shared streaming infrastructure
-│   │   ├── sse.rs       # SSE formatter (OpenAI format)
-│   │   └── ndjson.rs    # NDJSON formatter (Ollama format)
-│   └── types.rs         # Shared request/response types
-├── download/
-│   ├── mod.rs           # Download manager
-│   ├── hf.rs            # HuggingFace API client (file URL resolution)
-│   └── progress.rs      # Progress bar / reporting
-├── model/
-│   ├── mod.rs           # ModelManager — scan, list, delete
-│   └── types.rs         # ModelInfo struct
-└── error.rs             # Error types
+│   ├── mod.rs           Axum routes and shared state
+│   ├── openai.rs        OpenAI passthrough and model response
+│   ├── ollama.rs        Ollama request/response translation
+│   ├── upstream.rs      generic UI/native-route passthrough
+│   ├── types.rs         wire-format types
+│   └── stream/          SSE parsing and NDJSON conversion
+├── download/            Hugging Face discovery and parallel range downloads
+├── model/               model scanning and display metadata
+└── error.rs             application errors and terminal output helpers
 ```
 
-## Component Design
+## Configuration flow
 
-### 1. CLI Layer (`cli/`)
+Startup creates a `Config` from defaults and environment variables. For `run` and
+`serve`, a typed YAML profile may overlay it. Finally, explicit CLI values replace
+the model and device. Unknown profile fields are rejected by Serde.
 
-Uses `clap` derive macros. Top-level commands:
+The resolved configuration builds an argument vector rather than a shell command.
+This avoids shell interpolation and preserves exact `extra_args` boundaries.
 
-```
-llama run <model>       Start interactive REPL via llama-cli
-llama serve <model>     Start HTTP server via llama-server
-llama pull <spec>       Download GGUF from HuggingFace
-llama ls                List downloaded models
-llama rm <model>        Delete a model (stops running process first)
-```
+See [configuration.md](configuration.md) for the public contract.
 
-`<model>` accepts:
-- A filename (resolved against `LLAMA_MODELS_DIR`): `qwen3-14b-q4_k_m.gguf`
-- A relative path under models dir: `mradermacher/L3.3-70B-Euryale-v2.3-heretic-i1-GGUF/model.gguf`
-- An absolute path: `/mnt/models/qwen3.gguf`
+## Interactive process lifecycle
 
-### 2. Config Layer (`config/`)
+`llama run` resolves the GGUF and starts `llama-cli` with inherited stdin, stdout,
+and stderr. The wrapper adds conversation mode, system prompt, colors, optional
+reverse prompts, and the common compute/sampling flags.
 
-Configuration starts with environment variables and sensible defaults. For `run` and `serve`, an optional typed YAML execution profile is then overlaid, followed by explicit CLI overrides. This keeps environment-driven Docker usage while supporting repeatable local experiments.
+The child owns normal terminal interaction. Signal handling allows one `Ctrl+C`
+to interrupt generation while a second exits the session.
 
-See `config_reference.md` for the full list.
+## Server process lifecycle
 
-Config is loaded once at startup into an immutable `Config` struct, passed by `Arc<Config>` to all components.
+`llama serve` performs these steps:
 
-### 3. Process Manager (`process/`)
+1. Resolve the selected model and `llama-server` binary.
+2. Reserve a random loopback port for the private engine.
+3. Spawn `llama-server` with inherited stdout and stderr.
+4. Race health polling against child-process exit for up to 120 seconds.
+5. Build shared API state and bind the configured public address.
+6. On `Ctrl+C`, stop Axum and terminate the child gracefully, escalating if needed.
 
-Core responsibility: spawn llama.cpp binaries as child processes and manage their lifecycle.
+The public listener is deliberately created after readiness. Clients therefore
+cannot reach a half-loaded proxy, and immediate engine failures include the actual
+exit status or signal.
 
-**For `llama serve`:**
-1. Spawn `llama-server` with flags built from Config (compute device, GPU layers, tensor split, context size, etc.)
-2. Poll `/health` endpoint until llama-server is ready
-3. Start the axum proxy server on the configured host:port
-4. Forward signals (SIGINT/SIGTERM) to the child process for clean shutdown
+## HTTP request flows
 
-**For `llama run`:**
-1. Spawn `llama-cli` with `--conversation` flag
-2. Connect stdin/stdout/stderr to the terminal
-3. Wait for process exit
+### Native UI and engine routes
 
-Flag construction mirrors the shell script's `build_common_flags()` function.
+`GET /` and unmatched paths are generic reverse-proxy requests to the private
+llama-server. Status, headers, and streaming bodies are relayed, which exposes the
+built-in UI and avoids maintaining a duplicate list of native endpoints.
 
-### 4. API Proxy Layer (`api/`)
+`HEAD /` is handled locally because Ollama clients use it as a connectivity check.
 
-An axum HTTP server that sits in front of the llama-server subprocess.
+### OpenAI compatibility
 
-**OpenAI-compatible endpoints** (`/v1/*`):
-- `/v1/chat/completions` — proxy to llama-server's same endpoint
-- `/v1/models` — return model info
-- Non-streaming: forward request, await response, relay back
-- Streaming: forward request, relay SSE chunks as-is (`data: {json}\n\n` + `data: [DONE]\n\n`)
+`POST /v1/chat/completions` forwards the raw request body to the same upstream
+route and streams the response body back. The wrapper does not deserialize this
+path, so extra fields supported by a particular llama.cpp build survive intact.
 
-**llama.cpp Web UI and native endpoints**:
-- `/` — proxy llama-server's built-in Web UI
-- Unmatched paths — passthrough static UI assets and llama.cpp-specific APIs
+`GET /v1/models` is synthesized locally because the wrapper knows the single
+loaded model.
 
-**Ollama-compatible endpoints** (`/api/*`):
-- `/api/chat` — translate request to OpenAI format, proxy to llama-server, translate response back
-- `/api/generate` — same pattern for raw completions
-- `/api/tags` — list available models (maps to `llama ls` logic)
-- `/api/show` — model info
-- Non-streaming: collect full response, reformat as Ollama JSON
-- Streaming: translate SSE chunks to NDJSON on the fly
+### Ollama compatibility
 
-### 5. Streaming Architecture
+`/api/chat` and `/api/generate` deserialize the supported Ollama request subset,
+map it to an OpenAI chat request, then translate the response. Non-streaming calls
+produce one JSON object. Streaming calls parse upstream SSE events and emit Ollama
+NDJSON incrementally.
 
-```
-llama-server (SSE)  →  token stream  →  OpenAI SSE passthrough
-                                     →  Ollama NDJSON translation
-```
+Metadata routes such as `/api/tags`, `/api/show`, and `/api/version` are generated
+locally from the loaded model and wrapper information.
 
-The proxy reads llama-server's SSE stream and:
-- For `/v1/*`: relays SSE events directly (zero translation)
-- For `/api/*`: parses each `chat.completion.chunk`, extracts `delta.content`, wraps in Ollama JSON format, writes as NDJSON line
+See [api.md](api.md) for the externally supported routes.
 
-Implementation:
-- `reqwest` with streaming response to consume llama-server's SSE output
-- `tokio::sync::mpsc` channel to bridge the reqwest stream to axum's response stream
-- Axum `Sse<impl Stream>` for OpenAI endpoints
-- Axum `Body::from_stream()` for Ollama NDJSON endpoints
+## Model and download management
 
-### 6. Download Manager (`download/`)
+Models use the Hugging Face organization/repository directory convention. The
+resolver supports absolute paths, repository-relative paths, recursive filename
+search, repository directory selection, and `org/repo:quant` specs. Auxiliary
+`mmproj` GGUF files are excluded from normal model selection.
 
-Downloads GGUF files from HuggingFace with parallel chunk downloads.
+The downloader queries the Hugging Face API, selects a quantization-matching GGUF,
+and uses parallel HTTP range requests when supported. A temporary download is
+renamed only after completion. Repository metadata is fetched separately on a
+best-effort basis.
 
-Usage: `llama pull mradermacher/L3.3-70B-Euryale-v2.3-heretic-i1-GGUF Q4_K_M.gguf`
+Removal resolves the exact model path, detects matching `llama-server` command
+lines, terminates them, deletes the file, and cleans empty repository directories.
 
-Flow:
-1. Resolve download URL: `https://huggingface.co/{org}/{repo}/resolve/main/{filename}`
-2. Create local directory: `$LLAMA_MODELS_DIR/{org}/{repo}/`
-3. HEAD request to get file size
-4. Split into chunks, download in parallel (configurable concurrency)
-5. Write to temp file, rename on completion
-6. Show progress bar with speed and ETA
+## Concurrency and errors
 
-### 7. Model Manager (`model/`)
+The Tokio runtime owns HTTP serving, upstream requests, downloads, health polling,
+and child-process control. Response bodies are streamed to avoid buffering model
+output. The interactive child instead uses inherited blocking terminal handles.
 
-Scans `$LLAMA_MODELS_DIR` for `.gguf` files recursively.
+Top-level commands return `anyhow::Result` with contextual errors. Reusable error
+conditions use typed `thiserror` variants. Structured wrapper diagnostics use
+`tracing`; user-facing status uses the terminal output helpers; child engine logs
+are inherited verbatim.
 
-- `llama ls`: Walk the directory tree, collect `ModelInfo` (name, size, path, modified date), sort by name, display as table
-- `llama rm <model>`: Resolve the model path, check if a llama-server process is using it (by checking pid files or process list), kill if running, delete the file
+## Deliberate limits
 
-## Concurrency Model
-
-- **Main thread**: For `llama run`, owns the terminal (stdin/stdout forwarded to llama-cli)
-- **Tokio runtime**: For `llama serve`, runs the axum server and manages async proxy streams
-- **Child process management**: llama-server/llama-cli run as separate OS processes, communicating via HTTP (serve) or stdio (run)
-
-## Error Handling
-
-- `anyhow::Result` for CLI commands and top-level flows
-- `thiserror` enums for typed errors in library modules (`download::Error`, `process::Error`)
-- Errors are logged via `tracing` and surfaced to the user with context
-- `llama-server` output is inherited by the terminal so loading progress and failures remain visible
-- Server startup watches both the health endpoint and child-process exit status
-
-## What This Is NOT
-
-- Not a full Ollama replacement — subset of API surface, no model registry
-- No multi-model concurrent serving — one model per `llama serve` invocation
-- No authentication
-- No FFI — purely subprocess-based
-- No model conversion/quantization — expects pre-quantized GGUF files
+- No FFI or embedded inference engine
+- No authentication, authorization, or rate limiting
+- No multi-model scheduler or concurrent model registry
+- No model conversion, quantization, or Modelfile implementation
+- Ollama compatibility is a targeted subset, not protocol parity
