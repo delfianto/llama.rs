@@ -300,7 +300,8 @@ fn test_help_shows_new_env_vars() {
         .stdout(predicate::str::contains("LLAMA_REPEAT_PENALTY"))
         .stdout(predicate::str::contains("LLAMA_PRESENCE_PENALTY"))
         .stdout(predicate::str::contains("LLAMA_TOP_P"))
-        .stdout(predicate::str::contains("LLAMA_MIN_P"));
+        .stdout(predicate::str::contains("LLAMA_MIN_P"))
+        .stdout(predicate::str::contains("LLAMA_LOG_VERBOSITY"));
 }
 
 #[test]

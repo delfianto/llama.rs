@@ -36,7 +36,8 @@ const ENV_HELP: &str = "\x1b[1mEnvironment variables:\x1b[0m
   LLAMA_MIN_P            Min-p sampling
   LLAMA_DOWNLOAD_CONNECTIONS  Parallel downloads       (default: 4)
   HF_TOKEN               HuggingFace token for gated models
-  LLAMA_LOG              Log level                     (default: info)";
+  LLAMA_LOG              Wrapper log level             (default: info)
+  LLAMA_LOG_VERBOSITY    llama.cpp engine verbosity    (default: 0)";
 
 #[derive(Parser)]
 #[command(

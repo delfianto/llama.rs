@@ -10,7 +10,7 @@ use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::post;
 use serde_json::json;
 use tokio::net::TcpListener;
-use wiremock::matchers::{method, path};
+use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Build a test proxy server pointing at the given mock llama-server.
@@ -62,6 +62,50 @@ async fn start_sse_mock(chunks: Vec<&'static str>) -> SocketAddr {
 
 fn url(addr: SocketAddr, p: &str) -> String {
     format!("http://{addr}{p}")
+}
+
+// ─── Built-in llama.cpp UI passthrough ──────────────────────────────────────
+
+#[tokio::test]
+async fn test_root_proxies_llama_cpp_ui() {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_raw("<html>llama.cpp UI</html>", "text/html"),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let addr = setup_proxy(&mock_server.uri()).await;
+    let response = reqwest::get(url(addr, "/")).await.unwrap();
+
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.headers()["content-type"], "text/html");
+    assert_eq!(response.text().await.unwrap(), "<html>llama.cpp UI</html>");
+}
+
+#[tokio::test]
+async fn test_fallback_proxies_ui_assets_and_query_string() {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/assets/app.js"))
+        .and(query_param("version", "1"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "text/javascript")
+                .set_body_string("console.log('llama-ui');"),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let addr = setup_proxy(&mock_server.uri()).await;
+    let response = reqwest::get(url(addr, "/assets/app.js?version=1"))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.text().await.unwrap(), "console.log('llama-ui');");
 }
 
 // ─── Non-streaming tests ─────────────────────────────────────────────────────
