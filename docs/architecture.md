@@ -66,7 +66,7 @@ llama rm <model>        Delete a model (stops running process first)
 
 Configuration starts with environment variables and sensible defaults. For `run` and `serve`, an optional typed YAML execution profile is then overlaid, followed by explicit CLI overrides. This keeps environment-driven Docker usage while supporting repeatable local experiments.
 
-See `CONFIG_REFERENCE.md` for the full list.
+See `config_reference.md` for the full list.
 
 Config is loaded once at startup into an immutable `Config` struct, passed by `Arc<Config>` to all components.
 

@@ -2,7 +2,7 @@
 
 ## Environment Variables
 
-All configuration is via environment variables, matching the original `llama.sh` script. No config files.
+Configuration comes from environment variables and optional YAML execution profiles.
 
 ### Path Configuration
 
