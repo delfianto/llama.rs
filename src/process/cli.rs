@@ -78,7 +78,9 @@ mod tests {
         // Clear env to get predictable defaults
         for key in [
             "LLAMA_BIN_DIR",
+            "LLAMA_DEVICE",
             "LLAMA_TENSOR_SPLIT",
+            "LLAMA_MAIN_GPU",
             "LLAMA_FLASH_ATTN",
             "LLAMA_MLOCK",
             "LLAMA_SYSTEM_PROMPT_FILE",

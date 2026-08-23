@@ -51,7 +51,8 @@ fn test_run_help() {
         .args(["run", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("interactive REPL"));
+        .stdout(predicate::str::contains("interactive REPL"))
+        .stdout(predicate::str::contains("--config"));
 }
 
 #[test]
@@ -61,7 +62,88 @@ fn test_serve_help() {
         .args(["serve", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("API server"));
+        .stdout(predicate::str::contains("API server"))
+        .stdout(predicate::str::contains("--device"));
+}
+
+#[test]
+fn test_run_help_shows_device_option() {
+    Command::cargo_bin("llama")
+        .unwrap()
+        .args(["run", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--device"))
+        .stdout(predicate::str::contains("gpu0"));
+}
+
+#[test]
+fn test_run_without_model_or_config_is_helpful() {
+    Command::cargo_bin("llama")
+        .unwrap()
+        .args(["run"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("provide <MODEL>"));
+}
+
+#[test]
+fn test_invalid_yaml_config_is_helpful() {
+    let config = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(config.path(), "compute:\n  gpu_layerz: 99\n").unwrap();
+
+    Command::cargo_bin("llama")
+        .unwrap()
+        .args(["serve", "--config", config.path().to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("invalid YAML config"))
+        .stderr(predicate::str::contains("unknown field"));
+}
+
+#[cfg(unix)]
+#[test]
+fn test_run_uses_model_and_arguments_from_yaml() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let model = tmp.path().join("model.gguf");
+    let binary = tmp.path().join("llama-cli");
+    let captured = tmp.path().join("arguments.txt");
+    let profile = tmp.path().join("experiment.yaml");
+
+    std::fs::write(&model, b"test model").unwrap();
+    std::fs::write(
+        &binary,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$LLAMA_CAPTURE_ARGS\"\n",
+    )
+    .unwrap();
+    let mut permissions = std::fs::metadata(&binary).unwrap().permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&binary, permissions).unwrap();
+
+    std::fs::write(
+        &profile,
+        format!(
+            "model: {}\npaths:\n  bin_dir: {}\ncompute:\n  device: gpu1\ninference:\n  context_size: 4096\nextra_args:\n  - --cache-type-k\n  - q8_0\n",
+            model.display(),
+            tmp.path().display()
+        ),
+    )
+    .unwrap();
+
+    Command::cargo_bin("llama")
+        .unwrap()
+        .env("LLAMA_CAPTURE_ARGS", &captured)
+        .args(["run", "--config", profile.to_str().unwrap()])
+        .assert()
+        .success();
+
+    let arguments = std::fs::read_to_string(captured).unwrap();
+    assert!(arguments.contains(&format!("-m\n{}", model.display())));
+    assert!(arguments.contains("--device\nCUDA1"));
+    assert!(arguments.contains("-c\n4096"));
+    assert!(arguments.contains("--cache-type-k\nq8_0"));
 }
 
 #[test]
@@ -207,6 +289,7 @@ fn test_help_shows_new_env_vars() {
         .assert()
         .success()
         .stdout(predicate::str::contains("LLAMA_SYSTEM_PROMPT_FILE"))
+        .stdout(predicate::str::contains("LLAMA_DEVICE"))
         .stdout(predicate::str::contains("LLAMA_PROMPT_TEMPLATE_FILE"))
         .stdout(predicate::str::contains("LLAMA_PROMPT_TEMPLATE"))
         .stdout(predicate::str::contains("LLAMA_TEMPERATURE"))

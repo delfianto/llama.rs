@@ -1,0 +1,50 @@
+# Run with:
+#   llama serve --config examples/ik-llama.yaml
+#   llama run --config examples/ik-llama.yaml
+
+model: mradermacher/Qwen3-8B-GGUF:Q4_K_M
+
+# Relative paths are resolved from this YAML file.
+paths: {}
+# paths:
+#   bin_dir: /opt/ik_llama.cpp/build/bin
+#   models_dir: /models
+
+compute:
+  device: gpu0
+  gpu_layers: 999
+  flash_attention: true
+  mlock: true
+  # For multiple selected devices:
+  # tensor_split: 1,1
+  # main_gpu: 0
+
+inference:
+  context_size: 32768
+  batch_size: 2048
+  threads: 8
+
+server:
+  host: 127.0.0.1
+  port: 8080
+
+prompt:
+  system: You are a helpful assistant.
+  stop: []
+
+sampling:
+  temperature: 0.7
+  max_tokens: 2048
+  context_overflow: shift
+  top_k: 40
+  top_p: 0.95
+  min_p: 0.05
+  repeat_penalty: 1.1
+
+# Escape hatch for ik_llama.cpp flags not represented above. Each item is
+# passed as one argv value; no shell parsing is performed.
+extra_args:
+  - --cache-type-k
+  - q8_0
+  - --cache-type-v
+  - q8_0

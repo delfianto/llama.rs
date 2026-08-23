@@ -25,9 +25,12 @@ pub async fn exec(config: &Config, model: &str) -> anyhow::Result<()> {
         "Endpoint:     http://{}:{}",
         config.host, config.port
     ));
-    output::info(&format!("GPU layers:   {}", config.gpu_layers));
-    if let Some(ref ts) = config.tensor_split {
-        output::info(&format!("Tensor split: {ts}"));
+    output::info(&format!("Compute:      {}", config.device));
+    output::info(&format!("GPU layers:   {}", config.effective_gpu_layers()));
+    if !config.is_cpu_only() {
+        if let Some(ref ts) = config.tensor_split {
+            output::info(&format!("Tensor split: {ts}"));
+        }
     }
     output::info(&format!("Context size: {}", config.ctx_size));
     output::info(&format!(
@@ -47,7 +50,7 @@ pub async fn exec(config: &Config, model: &str) -> anyhow::Result<()> {
 
     // Build axum proxy
     let app_state = AppState {
-        config: Arc::new(Config::from_env()),
+        config: Arc::new(config.clone()),
         llama_server_url: server_state.internal_url.clone(),
         model_name,
         http_client: reqwest::Client::new(),

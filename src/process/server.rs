@@ -137,7 +137,9 @@ mod tests {
     fn test_config() -> Config {
         for key in [
             "LLAMA_BIN_DIR",
+            "LLAMA_DEVICE",
             "LLAMA_TENSOR_SPLIT",
+            "LLAMA_MAIN_GPU",
             "LLAMA_SYSTEM_PROMPT_FILE",
             "LLAMA_PROMPT_TEMPLATE_FILE",
             "LLAMA_PROMPT_TEMPLATE",

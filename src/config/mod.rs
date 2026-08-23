@@ -1,6 +1,9 @@
 pub mod resolve;
+pub mod yaml;
 
+use std::fmt;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use crate::error::LlamaError;
 
@@ -13,16 +16,85 @@ pub enum ChatTemplate {
     Value(String),
 }
 
+/// Compute resource used by llama.cpp for model inference.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub enum ComputeDevice {
+    /// Let llama.cpp discover and use its default accelerator(s).
+    #[default]
+    Auto,
+    /// Keep the model on the CPU by disabling GPU layer offload.
+    Cpu,
+    /// Restrict offloading to the given llama.cpp backend device list.
+    Devices(String),
+}
+
+impl ComputeDevice {
+    /// Human-readable value used in startup output.
+    pub fn display_name(&self) -> &str {
+        match self {
+            Self::Auto => "auto",
+            Self::Cpu => "CPU",
+            Self::Devices(devices) => devices,
+        }
+    }
+}
+
+impl fmt::Display for ComputeDevice {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.display_name())
+    }
+}
+
+impl FromStr for ComputeDevice {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let value = value.trim();
+        if value.is_empty() {
+            return Err("device cannot be empty".to_string());
+        }
+
+        if value.eq_ignore_ascii_case("auto") {
+            return Ok(Self::Auto);
+        }
+        if value.eq_ignore_ascii_case("cpu") {
+            return Ok(Self::Cpu);
+        }
+
+        let devices = value
+            .split(',')
+            .map(str::trim)
+            .map(|device| {
+                let lower = device.to_ascii_lowercase();
+                if let Some(index) = lower.strip_prefix("gpu") {
+                    if !index.is_empty() && index.chars().all(|c| c.is_ascii_digit()) {
+                        return Ok(format!("CUDA{index}"));
+                    }
+                }
+                if device.is_empty() {
+                    Err("device list contains an empty entry".to_string())
+                } else {
+                    Ok(device.to_string())
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Self::Devices(devices.join(",")))
+    }
+}
+
 /// Immutable application configuration, loaded from environment variables.
+#[derive(Clone)]
 pub struct Config {
     // Paths
     pub bin_dir: Option<PathBuf>,
     pub models_dir: PathBuf,
 
     // GPU / Hardware
+    pub device: ComputeDevice,
     pub gpu_layers: u32,
     pub tensor_split: Option<String>,
-    pub main_gpu: u32,
+    pub main_gpu: Option<u32>,
     pub flash_attn: bool,
     pub mlock: bool,
 
@@ -56,6 +128,9 @@ pub struct Config {
 
     // Logging
     pub log_level: String,
+
+    // Advanced llama.cpp / ik_llama.cpp arguments
+    pub extra_args: Vec<String>,
 }
 
 impl Config {
@@ -78,9 +153,10 @@ impl Config {
             models_dir: PathBuf::from(
                 env_or("LLAMA_MODELS_DIR", &default_models_dir.to_string_lossy()).as_ref(),
             ),
+            device: env_parse("LLAMA_DEVICE", ComputeDevice::Auto),
             gpu_layers: env_parse("LLAMA_GPU_LAYERS", 999),
             tensor_split: env_opt("LLAMA_TENSOR_SPLIT"),
-            main_gpu: env_parse("LLAMA_MAIN_GPU", 0),
+            main_gpu: env_opt("LLAMA_MAIN_GPU").and_then(|v| v.parse().ok()),
             flash_attn: env_bool("LLAMA_FLASH_ATTN", true),
             mlock: env_bool("LLAMA_MLOCK", true),
             ctx_size: env_parse("LLAMA_CTX_SIZE", 32768),
@@ -129,6 +205,7 @@ impl Config {
             download_connections: env_parse("LLAMA_DOWNLOAD_CONNECTIONS", 4),
             hf_token: env_opt("HF_TOKEN"),
             log_level: env_or("LLAMA_LOG", "info").to_string(),
+            extra_args: Vec::new(),
         }
     }
 
@@ -158,9 +235,7 @@ impl Config {
             "-m".to_string(),
             model_path.to_string_lossy().to_string(),
             "-ngl".to_string(),
-            self.gpu_layers.to_string(),
-            "--main-gpu".to_string(),
-            self.main_gpu.to_string(),
+            self.effective_gpu_layers().to_string(),
             "-c".to_string(),
             self.ctx_size.to_string(),
             "-b".to_string(),
@@ -169,9 +244,21 @@ impl Config {
             self.threads.to_string(),
         ];
 
-        if let Some(ref ts) = self.tensor_split {
-            flags.push("--tensor-split".to_string());
-            flags.push(ts.clone());
+        if !matches!(self.device, ComputeDevice::Cpu) {
+            if let ComputeDevice::Devices(ref devices) = self.device {
+                flags.push("--device".to_string());
+                flags.push(devices.clone());
+            }
+
+            if let Some(main_gpu) = self.main_gpu {
+                flags.push("--main-gpu".to_string());
+                flags.push(main_gpu.to_string());
+            }
+
+            if let Some(ref ts) = self.tensor_split {
+                flags.push("--tensor-split".to_string());
+                flags.push(ts.clone());
+            }
         }
 
         if !self.flash_attn {
@@ -229,7 +316,23 @@ impl Config {
             None => {}
         }
 
+        flags.extend(self.extra_args.iter().cloned());
+
         flags
+    }
+
+    /// GPU layers after applying the selected compute resource.
+    pub fn effective_gpu_layers(&self) -> u32 {
+        if matches!(self.device, ComputeDevice::Cpu) {
+            0
+        } else {
+            self.gpu_layers
+        }
+    }
+
+    /// Whether inference has explicitly been restricted to the CPU.
+    pub fn is_cpu_only(&self) -> bool {
+        matches!(self.device, ComputeDevice::Cpu)
     }
 }
 
@@ -283,6 +386,7 @@ mod tests {
     const ALL_CONFIG_KEYS: &[&str] = &[
         "LLAMA_BIN_DIR",
         "LLAMA_MODELS_DIR",
+        "LLAMA_DEVICE",
         "LLAMA_GPU_LAYERS",
         "LLAMA_TENSOR_SPLIT",
         "LLAMA_MAIN_GPU",
@@ -321,8 +425,9 @@ mod tests {
         clear_env();
 
         let config = Config::from_env();
+        assert_eq!(config.device, ComputeDevice::Auto);
         assert_eq!(config.gpu_layers, 999);
-        assert_eq!(config.main_gpu, 0);
+        assert_eq!(config.main_gpu, None);
         assert!(config.flash_attn);
         assert!(config.mlock);
         assert_eq!(config.ctx_size, 32768);
@@ -386,8 +491,9 @@ mod tests {
     fn test_common_flags_basic() {
         unsafe { std::env::remove_var("LLAMA_TENSOR_SPLIT") };
         let mut config = Config::from_env();
+        config.device = ComputeDevice::Auto;
         config.gpu_layers = 999;
-        config.main_gpu = 0;
+        config.main_gpu = None;
         config.ctx_size = 32768;
         config.batch_size = 2048;
         config.threads = 8;
@@ -417,6 +523,71 @@ mod tests {
         let ts_idx = flags.iter().position(|f| f == "--tensor-split");
         assert!(ts_idx.is_some());
         assert_eq!(flags[ts_idx.expect("just checked") + 1], "14,12");
+    }
+
+    #[test]
+    fn test_compute_device_parsing() {
+        assert_eq!("auto".parse(), Ok(ComputeDevice::Auto));
+        assert_eq!("CPU".parse(), Ok(ComputeDevice::Cpu));
+        assert_eq!(
+            "gpu1".parse(),
+            Ok(ComputeDevice::Devices("CUDA1".to_string()))
+        );
+        assert_eq!(
+            "gpu0,gpu2".parse(),
+            Ok(ComputeDevice::Devices("CUDA0,CUDA2".to_string()))
+        );
+        assert_eq!(
+            "Vulkan0".parse(),
+            Ok(ComputeDevice::Devices("Vulkan0".to_string()))
+        );
+        assert!("".parse::<ComputeDevice>().is_err());
+        assert!("gpu0,,gpu1".parse::<ComputeDevice>().is_err());
+    }
+
+    #[test]
+    fn test_common_flags_with_explicit_gpu() {
+        let mut config = Config::from_env();
+        config.device = ComputeDevice::Devices("CUDA1".to_string());
+        config.main_gpu = None;
+
+        let flags = config.build_common_flags(Path::new("/models/test.gguf"));
+        let device_idx = flags
+            .iter()
+            .position(|f| f == "--device")
+            .expect("has --device");
+        assert_eq!(flags[device_idx + 1], "CUDA1");
+        assert!(!flags.contains(&"--main-gpu".to_string()));
+    }
+
+    #[test]
+    fn test_common_flags_cpu_disables_gpu_placement() {
+        let mut config = Config::from_env();
+        config.device = ComputeDevice::Cpu;
+        config.gpu_layers = 999;
+        config.main_gpu = Some(1);
+        config.tensor_split = Some("1,1".to_string());
+
+        let flags = config.build_common_flags(Path::new("/models/test.gguf"));
+        let ngl_idx = flags.iter().position(|f| f == "-ngl").expect("has -ngl");
+        assert_eq!(flags[ngl_idx + 1], "0");
+        assert!(!flags.contains(&"--device".to_string()));
+        assert!(!flags.contains(&"--main-gpu".to_string()));
+        assert!(!flags.contains(&"--tensor-split".to_string()));
+    }
+
+    #[test]
+    fn test_common_flags_with_explicit_main_gpu() {
+        let mut config = Config::from_env();
+        config.device = ComputeDevice::Auto;
+        config.main_gpu = Some(1);
+
+        let flags = config.build_common_flags(Path::new("/models/test.gguf"));
+        let main_gpu_idx = flags
+            .iter()
+            .position(|f| f == "--main-gpu")
+            .expect("has --main-gpu");
+        assert_eq!(flags[main_gpu_idx + 1], "1");
     }
 
     #[test]

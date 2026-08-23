@@ -1,6 +1,6 @@
 # llama.rs
 
-A Rust shim around [llama.cpp](https://github.com/ggml-org/llama.cpp) that gives you an Ollama-like CLI and API without the parts that make you want to throw your keyboard out the window.
+A Rust shim around [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) and [llama.cpp](https://github.com/ggml-org/llama.cpp) that gives you an Ollama-like CLI and API without the parts that make you want to throw your keyboard out the window. The launcher is tuned for ik_llama.cpp while retaining compatibility with current upstream binaries.
 
 ## Why does this exist?
 
@@ -22,11 +22,11 @@ So here we are. This project wraps `llama-server` and `llama-cli` in a Rust bina
 
 - **Not an Ollama replacement.** This covers maybe 30% of what Ollama does. No model registry, no layers, no Modelfiles, no multi-model serving. If Ollama works for you, genuinely, keep using it.
 - **Not production software.** No auth, no clustering, no rate limiting. It runs one model on one machine and that's it.
-- **Not battle-tested.** This was built over the course of a conversation with Claude Opus 4.6, fueled by an mass amount of tokens and spite toward brittle abstractions. There will be bugs.
+- **Not battle-tested.** This was built over the course of a conversation with LLM, fueled by an mass amount of tokens and spite toward brittle abstractions. There will be bugs.
 
 ## Quick start
 
-You need `llama-server` and `llama-cli` from [llama.cpp](https://github.com/ggml-org/llama.cpp) installed and in your PATH.
+You need `llama-server` and `llama-cli` from [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) (recommended) or current upstream llama.cpp installed and in your PATH. Point `LLAMA_BIN_DIR` at the fork's `build/bin` directory if it is not in your PATH.
 
 ```bash
 # Build
@@ -38,8 +38,15 @@ llama pull mradermacher/Qwen3-8B-GGUF:Q4_K_M
 # Interactive REPL
 llama run mradermacher/Qwen3-8B-GGUF:Q4_K_M
 
+# Run on CPU only, or pin offload to a particular CUDA GPU
+llama run mradermacher/Qwen3-8B-GGUF:Q4_K_M --device cpu
+llama run mradermacher/Qwen3-8B-GGUF:Q4_K_M --device gpu1
+
 # Start API server (OpenAI + Ollama compatible)
 llama serve mradermacher/Qwen3-8B-GGUF:Q4_K_M
+
+# Or keep the whole experiment in a reusable YAML profile
+llama serve --config experiments/qwen3.yaml
 
 # List models
 llama ls
@@ -55,9 +62,11 @@ All configuration via environment variables. No config files. Docker-friendly.
 ```bash
 LLAMA_MODELS_DIR=~/.local/share/llama/models  # Where models are stored
 LLAMA_BIN_DIR=/usr/local/bin                  # Where llama-server/llama-cli live (default: PATH)
+LLAMA_DEVICE=auto                             # auto, cpu, gpu0, gpu1, CUDA0,...
 LLAMA_GPU_LAYERS=999                          # GPU layers to offload (default: all)
 LLAMA_CTX_SIZE=32768                          # Context window (default: 32768)
 LLAMA_TENSOR_SPLIT=14,12                      # Multi-GPU VRAM split
+LLAMA_MAIN_GPU=0                              # Optional primary GPU index
 LLAMA_HOST=127.0.0.1                          # Bind address (default: 127.0.0.1)
 LLAMA_PORT=8080                               # Port (default: 8080)
 LLAMA_FLASH_ATTN=1                            # Flash attention on/off (default: on)
@@ -71,6 +80,20 @@ HF_TOKEN=hf_xxx                              # HuggingFace token for gated model
 `LLAMA_MODELS_DIR` defaults to your OS data directory (`~/Library/Application Support/llama/models` on macOS, `~/.local/share/llama/models` on Linux).
 
 See [docs/CONFIG_REFERENCE.md](docs/CONFIG_REFERENCE.md) for the full list.
+
+### YAML experiment profiles
+
+Both execution commands accept `--config`/`-c`. A profile can contain the model and all execution settings, so no model positional is required:
+
+```bash
+llama serve --config examples/ik-llama.yaml
+llama run --config examples/ik-llama.yaml
+
+# A positional model or --device overrides the value from YAML
+llama serve another-model.gguf --config experiment.yaml --device gpu1
+```
+
+See [examples/ik-llama.yaml](examples/ik-llama.yaml) for a complete, commented profile. Unknown YAML keys are rejected to catch misspelled experiment parameters.
 
 ## API endpoints
 

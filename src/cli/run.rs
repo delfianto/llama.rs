@@ -10,9 +10,12 @@ pub async fn exec(config: &Config, model: &str) -> anyhow::Result<()> {
 
     output::info(&format!("Model:        {}", model_path.display()));
     output::info("Mode:         interactive REPL");
-    output::info(&format!("GPU layers:   {}", config.gpu_layers));
-    if let Some(ref ts) = config.tensor_split {
-        output::info(&format!("Tensor split: {ts}"));
+    output::info(&format!("Compute:      {}", config.device));
+    output::info(&format!("GPU layers:   {}", config.effective_gpu_layers()));
+    if !config.is_cpu_only() {
+        if let Some(ref ts) = config.tensor_split {
+            output::info(&format!("Tensor split: {ts}"));
+        }
     }
     output::info(&format!("Context size: {}", config.ctx_size));
     eprintln!();
