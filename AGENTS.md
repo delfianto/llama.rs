@@ -29,7 +29,7 @@ cargo fmt --check && cargo clippy -- -D warnings && cargo test
 
 ## Architecture
 
-See `docs/ARCHITECTURE.md` for full details. Key layers:
+See `docs/architecture.md` for full details. Key layers:
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -73,6 +73,6 @@ See `docs/ARCHITECTURE.md` for full details. Key layers:
 
 Detailed documentation lives in `docs/`:
 
-- `ARCHITECTURE.md` — full system design
-- `DEPENDENCIES.md` — crate choices and rationale
-- `CONFIG_REFERENCE.md` — all env vars and CLI args
+- `architecture.md` — full system design
+- `dependencies.md` — crate choices and rationale
+- `config_reference.md` — all env vars and CLI args

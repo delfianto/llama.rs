@@ -1,5 +1,7 @@
 # Dependencies
 
+This document records the project's crate choices and their rationale.
+
 ## Rust Edition & Toolchain
 
 - **Edition**: 2024
