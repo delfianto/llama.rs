@@ -18,7 +18,7 @@ path = "src/main.rs"
 anyhow = "1"
 async-stream = "0.3"
 axum = { version = "0.8", features = ["macros"] }
-bytesize = "1"
+bytesize = "2"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
 dirs = "6"
