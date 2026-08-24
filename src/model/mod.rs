@@ -112,7 +112,7 @@ pub fn cleanup_empty_dirs(file_path: &Path, stop_at: &Path) -> anyhow::Result<()
 
 /// Format a byte count as human-readable (e.g., "4.1 GB").
 pub fn format_size(bytes: u64) -> String {
-    bytesize::ByteSize(bytes).to_string()
+    bytesize::ByteSize(bytes).display().si().to_string()
 }
 
 /// Format a `SystemTime` as a relative time string (e.g., "2 days ago").
@@ -249,8 +249,8 @@ mod tests {
     #[test]
     fn test_format_size() {
         assert_eq!(format_size(0), "0 B");
-        assert_eq!(format_size(1024), "1.0 KB");
-        // bytesize uses SI-like formatting
+        assert_eq!(format_size(1024), "1.0 kB");
+        // bytesize uses SI formatting
         let gb_str = format_size(1_073_741_824);
         assert!(
             gb_str.contains("GB") || gb_str.contains("MB"),
