@@ -29,10 +29,10 @@ fn scan_recursive(base: &Path, dir: &Path, results: &mut Vec<ModelInfo>) {
             scan_recursive(base, &path, results);
         } else if path.extension().and_then(|e| e.to_str()) == Some("gguf") {
             // Skip non-model GGUF files (e.g., mmproj vision projectors)
-            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                if stem.starts_with("mmproj") {
-                    continue;
-                }
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+                && stem.starts_with("mmproj")
+            {
+                continue;
             }
 
             let relative = path
@@ -79,10 +79,10 @@ pub fn find_process_using_model(model_path: &Path) -> anyhow::Result<Option<u32>
 
         // Parse PID from ps output (USER PID ...)
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 2 {
-            if let Ok(pid) = parts[1].parse::<u32>() {
-                return Ok(Some(pid));
-            }
+        if parts.len() >= 2
+            && let Ok(pid) = parts[1].parse::<u32>()
+        {
+            return Ok(Some(pid));
         }
     }
 
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_format_relative_time_days() {
-        let time = SystemTime::now() - Duration::from_secs(2 * 86400);
+        let time = SystemTime::now() - Duration::from_hours(48);
         assert_eq!(format_relative_time(time), "2 days ago");
     }
 }

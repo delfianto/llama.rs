@@ -26,21 +26,21 @@ pub fn resolve_model_path(models_dir: &Path, input: &str) -> anyhow::Result<Path
     }
 
     // 2. Model spec: org/repo:quant
-    if input.contains(':') {
-        if let Some(spec) = ModelSpec::parse(input) {
-            let repo_dir = spec.local_dir(models_dir);
-            if repo_dir.is_dir() {
-                if let Some(found) = find_gguf_by_quant(&repo_dir, &spec.quant) {
-                    return Ok(found);
-                }
-            }
-            anyhow::bail!(LlamaError::ModelNotFound {
-                path: format!(
-                    "{}. Run 'llama pull {input}' to download it",
-                    spec.display_name()
-                ),
-            });
+    if input.contains(':')
+        && let Some(spec) = ModelSpec::parse(input)
+    {
+        let repo_dir = spec.local_dir(models_dir);
+        if repo_dir.is_dir()
+            && let Some(found) = find_gguf_by_quant(&repo_dir, &spec.quant)
+        {
+            return Ok(found);
         }
+        anyhow::bail!(LlamaError::ModelNotFound {
+            path: format!(
+                "{}. Run 'llama pull {input}' to download it",
+                spec.display_name()
+            ),
+        });
     }
 
     // 3. Relative path (contains slash, no colon)
@@ -106,10 +106,10 @@ fn find_by_directory_name(models_dir: &Path, name: &str) -> anyhow::Result<Optio
             if !repo_path.is_dir() {
                 continue;
             }
-            if let Some(dir_name) = repo_path.file_name().and_then(|n| n.to_str()) {
-                if dir_name.to_lowercase() == name_lower {
-                    matches.push(repo_path);
-                }
+            if let Some(dir_name) = repo_path.file_name().and_then(|n| n.to_str())
+                && dir_name.to_lowercase() == name_lower
+            {
+                matches.push(repo_path);
             }
         }
     }
