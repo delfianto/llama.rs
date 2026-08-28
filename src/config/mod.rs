@@ -66,10 +66,11 @@ impl FromStr for ComputeDevice {
             .map(str::trim)
             .map(|device| {
                 let lower = device.to_ascii_lowercase();
-                if let Some(index) = lower.strip_prefix("gpu") {
-                    if !index.is_empty() && index.chars().all(|c| c.is_ascii_digit()) {
-                        return Ok(format!("CUDA{index}"));
-                    }
+                if let Some(index) = lower.strip_prefix("gpu")
+                    && !index.is_empty()
+                    && index.chars().all(|c| c.is_ascii_digit())
+                {
+                    return Ok(format!("CUDA{index}"));
                 }
                 if device.is_empty() {
                     Err("device list contains an empty entry".to_string())

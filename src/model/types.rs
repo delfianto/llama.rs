@@ -94,13 +94,13 @@ fn extract_quant(filename: &str) -> String {
     if start >= 3 {
         let prefix_region = &filename[..start];
         // Look for prefixes like "UD-", "i1-" attached via separator
-        if let Some(p) = prefix_region.strip_suffix('-') {
-            if let Some(prefix) = p.rsplit(['-', '.']).next() {
-                let pu = prefix.to_uppercase();
-                if pu == "UD" || pu == "I1" {
-                    let prefix_start = start - prefix.len() - 1; // -1 for the '-'
-                    return filename[prefix_start..].to_string();
-                }
+        if let Some(p) = prefix_region.strip_suffix('-')
+            && let Some(prefix) = p.rsplit(['-', '.']).next()
+        {
+            let pu = prefix.to_uppercase();
+            if pu == "UD" || pu == "I1" {
+                let prefix_start = start - prefix.len() - 1; // -1 for the '-'
+                return filename[prefix_start..].to_string();
             }
         }
     }

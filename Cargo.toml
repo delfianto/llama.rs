@@ -2,7 +2,7 @@
 name = "llama-rs"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.98.0"
 description = "Ollama-like CLI wrapper for llama.cpp"
 license = "MIT"
 
