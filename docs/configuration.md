@@ -99,11 +99,10 @@ Profiles reject unknown keys, which catches misspelled parameters early. This is
 the complete schema:
 
 ```yaml
-model: /models/Qwen3-30B-A3B-IQ4_XS.gguf
-
 paths:
   bin_dir: /opt/ik_llama.cpp/build/bin
-  models_dir: /models
+  model_dir: /models/org/repository-GGUF
+  model_file: Qwen3-30B-A3B-IQ4_XS.gguf
 
 compute:
   device: gpu0,gpu1
@@ -147,9 +146,12 @@ extra_args:
   - q8_0
 ```
 
-All fields are optional. Relative `bin_dir`, `models_dir`, `system_file`, and
-`chat_template_file` paths resolve relative to the profile file, not the current
-working directory. File values take priority over inline prompt values.
+Most fields are optional. `paths.model_file` selects the main GGUF in
+`paths.model_dir`; `model_dir` can be absolute or relative to the profile file.
+`model_file` must be a filename, and `model_dir` requires `model_file`.
+Relative `bin_dir`, `models_dir`, `system_file`, and `chat_template_file` paths
+resolve relative to the profile file, not the current working directory. File
+values take priority over inline prompt values.
 
 The repository includes a [complete commented example](../examples/ik-llama.yaml).
 
@@ -160,8 +162,8 @@ The repository includes a [complete commented example](../examples/ik-llama.yaml
 
 ```yaml
 extra_args:
-  - --draft-model
-  - /models/draft.gguf
+  - --model-draft
+  - mtp-draft.gguf
   - --draft-max
   - "8"
 ```
@@ -170,6 +172,13 @@ Keep each argument and value as a separate YAML item. Quote values when YAML cou
 interpret their type. The wrapper appends its private server `--host` and `--port`
 after `extra_args`, so those transport settings cannot be replaced through this
 list; use the `server` section for the public bind address.
+
+For `--model-draft` and `--draft-model`, the wrapper resolves the following value
+as a model path before launching llama.cpp. An absolute path works directly; a
+relative path is rooted at `paths.models_dir`. A filename alone is resolved in
+`paths.model_dir` when set, or searched recursively beneath `paths.models_dir`.
+The path passed to llama.cpp is absolute. Other `extra_args` values are passed
+through unchanged.
 
 Engine-specific flags vary by llama.cpp fork and build. Confirm them with:
 

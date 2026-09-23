@@ -107,12 +107,16 @@ fn test_run_uses_model_and_arguments_from_yaml() {
     use std::os::unix::fs::PermissionsExt;
 
     let tmp = tempfile::TempDir::new().unwrap();
-    let model = tmp.path().join("model.gguf");
+    let draft_dir = tmp.path().join("org/long-repo-name");
+    std::fs::create_dir_all(&draft_dir).unwrap();
+    let model = draft_dir.join("model.gguf");
+    let draft = draft_dir.join("mtp-model.gguf");
     let binary = tmp.path().join("llama-cli");
     let captured = tmp.path().join("arguments.txt");
     let profile = tmp.path().join("experiment.yaml");
 
     std::fs::write(&model, b"test model").unwrap();
+    std::fs::write(&draft, b"test draft").unwrap();
     std::fs::write(
         &binary,
         "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$LLAMA_CAPTURE_ARGS\"\n",
@@ -125,8 +129,7 @@ fn test_run_uses_model_and_arguments_from_yaml() {
     std::fs::write(
         &profile,
         format!(
-            "model: {}\npaths:\n  bin_dir: {}\ncompute:\n  device: gpu1\ninference:\n  context_size: 4096\nextra_args:\n  - --cache-type-k\n  - q8_0\n",
-            model.display(),
+            "paths:\n  bin_dir: {}\n  model_dir: org/long-repo-name\n  model_file: model.gguf\ncompute:\n  device: gpu1\ninference:\n  context_size: 4096\nextra_args:\n  - --cache-type-k\n  - q8_0\n  - --model-draft\n  - mtp-model.gguf\n",
             tmp.path().display()
         ),
     )
@@ -144,6 +147,7 @@ fn test_run_uses_model_and_arguments_from_yaml() {
     assert!(arguments.contains("--device\nCUDA1"));
     assert!(arguments.contains("-c\n4096"));
     assert!(arguments.contains("--cache-type-k\nq8_0"));
+    assert!(arguments.contains(&format!("--model-draft\n{}", draft.display())));
 }
 
 #[test]

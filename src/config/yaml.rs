@@ -5,13 +5,13 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use serde::Deserialize;
 
+use super::resolve::resolve_model_path;
 use super::{ChatTemplate, ComputeDevice, Config};
 
 /// Partial configuration loaded from a YAML execution profile.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ExecutionProfile {
-    pub model: Option<String>,
     pub paths: PathsProfile,
     pub compute: ComputeProfile,
     pub inference: InferenceProfile,
@@ -27,6 +27,8 @@ pub struct ExecutionProfile {
 pub struct PathsProfile {
     pub bin_dir: Option<PathBuf>,
     pub models_dir: Option<PathBuf>,
+    pub model_dir: Option<PathBuf>,
+    pub model_file: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -101,6 +103,28 @@ impl ExecutionProfile {
         if let Some(path) = self.paths.models_dir {
             config.models_dir = resolve_relative(base_dir, path);
         }
+        let model_dir = self
+            .paths
+            .model_dir
+            .map(|path| resolve_relative(base_dir, path));
+        if model_dir.is_some() && self.paths.model_file.is_none() {
+            anyhow::bail!("paths.model_dir requires paths.model_file");
+        }
+        let profile_model = match self.paths.model_file {
+            Some(file) => {
+                let filename = Path::new(&file);
+                if file.is_empty() || filename.file_name() != Some(filename.as_os_str()) {
+                    anyhow::bail!("paths.model_file must be a filename, not a path");
+                }
+                let dir = model_dir.as_deref().unwrap_or(&config.models_dir);
+                let path = dir.join(filename);
+                if !path.is_file() {
+                    anyhow::bail!("paths.model_file does not exist: {}", path.display());
+                }
+                Some(path.canonicalize()?.to_string_lossy().into_owned())
+            }
+            None => None,
+        };
 
         if let Some(device) = self.compute.device {
             config.device = device
@@ -161,9 +185,52 @@ impl ExecutionProfile {
         assign_some(&mut config.top_p, self.sampling.top_p);
         assign_some(&mut config.min_p, self.sampling.min_p);
 
-        config.extra_args.extend(self.extra_args);
-        Ok(self.model)
+        config.extra_args.extend(resolve_draft_model_args(
+            &config.models_dir,
+            model_dir.as_deref(),
+            self.extra_args,
+        )?);
+        Ok(profile_model)
     }
+}
+
+/// Resolve draft model arguments before passing them through to llama.cpp.
+fn resolve_draft_model_args(
+    models_dir: &Path,
+    selected_dir: Option<&Path>,
+    mut args: Vec<String>,
+) -> anyhow::Result<Vec<String>> {
+    let mut index = 0;
+    while index < args.len() {
+        let flag = args[index].as_str();
+        if flag == "--model-draft" || flag == "--draft-model" {
+            let value = args
+                .get(index + 1)
+                .filter(|value| !value.is_empty() && !value.starts_with('-'))
+                .ok_or_else(|| anyhow::anyhow!("extra_args: {flag} requires a model path"))?;
+            let path = if let Some(dir) = selected_dir
+                .filter(|_| Path::new(value).file_name() == Some(std::ffi::OsStr::new(value)))
+            {
+                let path = dir.join(value);
+                if !path.is_file() {
+                    anyhow::bail!(
+                        "extra_args: {flag} model does not exist: {}",
+                        path.display()
+                    );
+                }
+                path
+            } else {
+                resolve_model_path(models_dir, value).with_context(|| {
+                    format!("extra_args: could not resolve {flag} value {value}")
+                })?
+            };
+            args[index + 1] = path.canonicalize()?.to_string_lossy().into_owned();
+            index += 2;
+        } else {
+            index += 1;
+        }
+    }
+    Ok(args)
 }
 
 fn assign<T>(target: &mut T, value: Option<T>) {
@@ -201,7 +268,6 @@ mod tests {
     #[test]
     fn loads_and_applies_complete_profile() {
         let yaml = r#"
-model: org/repo:model-quant
 compute:
   device: gpu1
   gpu_layers: 80
@@ -236,7 +302,7 @@ extra_args:
         let mut config = Config::from_env();
         let model = profile.apply(&mut config, Path::new("/profiles")).unwrap();
 
-        assert_eq!(model.as_deref(), Some("org/repo:model-quant"));
+        assert_eq!(model, None);
         assert_eq!(config.device, ComputeDevice::Devices("CUDA1".to_string()));
         assert_eq!(config.gpu_layers, 80);
         assert_eq!(config.tensor_split.as_deref(), Some("1,2"));
@@ -275,5 +341,93 @@ extra_args:
             config.bin_dir,
             Some(PathBuf::from("/profiles/test/../ik/build/bin"))
         );
+    }
+
+    #[test]
+    fn resolves_draft_model_filename_to_absolute_path() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let repo = tmp.path().join("org/long-repo-name");
+        std::fs::create_dir_all(&repo).unwrap();
+        let draft = repo.join("mtp-model.gguf");
+        std::fs::write(&draft, b"draft").unwrap();
+
+        let yaml = format!(
+            "paths:\n  models_dir: {}\nextra_args:\n  - --model-draft\n  - mtp-model.gguf\n  - --draft-model\n  - org/long-repo-name/mtp-model.gguf\n  - --spec-type\n  - mtp:n_max=1\n",
+            tmp.path().display()
+        );
+        let profile: ExecutionProfile = serde_yaml_ng::from_str(&yaml).unwrap();
+        let mut config = Config::from_env();
+        profile.apply(&mut config, tmp.path()).unwrap();
+
+        let expected = draft.canonicalize().unwrap().to_string_lossy().into_owned();
+        assert_eq!(
+            config.extra_args,
+            [
+                "--model-draft",
+                &expected,
+                "--draft-model",
+                &expected,
+                "--spec-type",
+                "mtp:n_max=1",
+            ]
+        );
+    }
+
+    #[test]
+    fn missing_draft_model_fails_before_launch() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let profile: ExecutionProfile =
+            serde_yaml_ng::from_str("extra_args:\n  - --model-draft\n  - missing.gguf\n").unwrap();
+        let mut config = Config::from_env();
+        config.models_dir = tmp.path().to_path_buf();
+        let error = profile
+            .apply(&mut config, tmp.path())
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("--model-draft"));
+        assert!(error.contains("missing.gguf"));
+    }
+
+    #[test]
+    fn model_dir_resolves_main_and_draft_files() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let repo = tmp.path().join("models/org/long-repo-name");
+        std::fs::create_dir_all(&repo).unwrap();
+        let main = repo.join("main.gguf");
+        let draft = repo.join("draft.gguf");
+        std::fs::write(&main, b"main").unwrap();
+        std::fs::write(&draft, b"draft").unwrap();
+
+        let profile: ExecutionProfile = serde_yaml_ng::from_str(
+            "paths:\n  model_dir: models/org/long-repo-name\n  model_file: main.gguf\nextra_args:\n  - --model-draft\n  - draft.gguf\n",
+        )
+        .unwrap();
+        let mut config = Config::from_env();
+        let model = profile.apply(&mut config, tmp.path()).unwrap();
+        assert_eq!(model.unwrap(), main.to_string_lossy());
+        assert_eq!(config.extra_args[1], draft.to_string_lossy());
+
+        let yaml = format!(
+            "paths:\n  model_dir: {}\n  model_file: main.gguf\n",
+            repo.display()
+        );
+        let profile: ExecutionProfile = serde_yaml_ng::from_str(&yaml).unwrap();
+        assert_eq!(
+            profile.apply(&mut config, tmp.path()).unwrap().unwrap(),
+            main.to_string_lossy()
+        );
+    }
+
+    #[test]
+    fn rejects_conflicting_or_incomplete_model_paths() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        for yaml in [
+            "paths:\n  model_dir: org/repo\n",
+            "paths:\n  model_file: ../outside.gguf\n",
+        ] {
+            let profile: ExecutionProfile = serde_yaml_ng::from_str(yaml).unwrap();
+            assert!(profile.apply(&mut Config::from_env(), tmp.path()).is_err());
+        }
+        assert!(serde_yaml_ng::from_str::<ExecutionProfile>("model: old.gguf").is_err());
     }
 }
