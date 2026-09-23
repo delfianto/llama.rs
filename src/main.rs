@@ -153,6 +153,6 @@ fn prepare_execution(
     }
 
     cli_model.or(profile_model).ok_or_else(|| {
-        anyhow::anyhow!("missing model: provide <MODEL> or set 'model' in --config FILE")
+        anyhow::anyhow!("missing model: provide <MODEL> or set 'paths.model_file' in --config FILE")
     })
 }

@@ -2,13 +2,11 @@
 #   llama serve --config examples/ik-llama.yaml
 #   llama run --config examples/ik-llama.yaml
 
-model: mradermacher/Qwen3-8B-GGUF:Q4_K_M
-
 # Relative paths are resolved from this YAML file.
-paths: {}
-# paths:
-#   bin_dir: /opt/ik_llama.cpp/build/bin
-#   models_dir: /models
+paths:
+  model_dir: /models/mradermacher/Qwen3-8B-GGUF
+  model_file: Qwen3-8B-Q4_K_M.gguf
+  # bin_dir: /opt/ik_llama.cpp/build/bin
 
 compute:
   device: gpu0
