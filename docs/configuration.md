@@ -173,7 +173,7 @@ interpret their type. The wrapper appends its private server `--host` and `--por
 after `extra_args`, so those transport settings cannot be replaced through this
 list; use the `server` section for the public bind address.
 
-For `--model-draft` and `--draft-model`, the wrapper resolves the following value
+For `--model-draft`, `--draft-model`, and `--mmproj`, the wrapper resolves the following value
 as a model path before launching llama.cpp. An absolute path works directly; a
 relative path is rooted at `paths.models_dir`. A filename alone is resolved in
 `paths.model_dir` when set, or searched recursively beneath `paths.models_dir`.
