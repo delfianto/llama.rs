@@ -185,7 +185,7 @@ impl ExecutionProfile {
         assign_some(&mut config.top_p, self.sampling.top_p);
         assign_some(&mut config.min_p, self.sampling.min_p);
 
-        config.extra_args.extend(resolve_draft_model_args(
+        config.extra_args.extend(resolve_model_file_args(
             &config.models_dir,
             model_dir.as_deref(),
             self.extra_args,
@@ -194,8 +194,8 @@ impl ExecutionProfile {
     }
 }
 
-/// Resolve draft model arguments before passing them through to llama.cpp.
-fn resolve_draft_model_args(
+/// Resolve companion model files before passing them through to llama.cpp.
+fn resolve_model_file_args(
     models_dir: &Path,
     selected_dir: Option<&Path>,
     mut args: Vec<String>,
@@ -203,7 +203,7 @@ fn resolve_draft_model_args(
     let mut index = 0;
     while index < args.len() {
         let flag = args[index].as_str();
-        if flag == "--model-draft" || flag == "--draft-model" {
+        if matches!(flag, "--model-draft" | "--draft-model" | "--mmproj") {
             let value = args
                 .get(index + 1)
                 .filter(|value| !value.is_empty() && !value.starts_with('-'))
@@ -416,6 +416,49 @@ extra_args:
             profile.apply(&mut config, tmp.path()).unwrap().unwrap(),
             main.to_string_lossy()
         );
+    }
+
+    #[test]
+    fn projector_filename_resolves_beside_selected_model() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let repo = tmp.path().join("models/vision");
+        std::fs::create_dir_all(&repo).unwrap();
+        std::fs::write(repo.join("main.gguf"), b"main").unwrap();
+        let projector = repo.join("mmproj.gguf");
+        std::fs::write(&projector, b"projector").unwrap();
+        let profile: ExecutionProfile = serde_yaml_ng::from_str(
+            "paths:\n  model_dir: models/vision\n  model_file: main.gguf\nextra_args:\n  - --mmproj\n  - mmproj.gguf\n",
+        )
+        .unwrap();
+        let mut config = Config::from_env();
+        profile.apply(&mut config, tmp.path()).unwrap();
+        assert_eq!(
+            config.extra_args,
+            ["--mmproj", &projector.to_string_lossy()]
+        );
+
+        let absolute = vec![
+            "--mmproj".to_string(),
+            projector.to_string_lossy().into_owned(),
+        ];
+        assert_eq!(
+            resolve_model_file_args(tmp.path(), None, absolute.clone()).unwrap(),
+            absolute
+        );
+    }
+
+    #[test]
+    fn missing_projector_fails_before_launch() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        for args in [
+            vec!["--mmproj".to_string()],
+            vec!["--mmproj".to_string(), "missing.gguf".to_string()],
+        ] {
+            let error = resolve_model_file_args(tmp.path(), Some(tmp.path()), args)
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("--mmproj"));
+        }
     }
 
     #[test]
