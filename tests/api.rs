@@ -425,7 +425,7 @@ async fn test_ollama_generate_streaming_ndjson() {
         .map(|l| serde_json::from_str(l).unwrap())
         .collect();
 
-    assert!(!lines.is_empty());
+    assert_ne!(lines, [] as [serde_json::Value; 0]);
     // Generate uses "response" field, not "message"
     assert_eq!(lines[0]["response"], "Because");
     assert_eq!(lines[0]["done"], false);
@@ -505,7 +505,7 @@ async fn test_openwebui_ollama_request() {
         .map(|l| serde_json::from_str(l).unwrap())
         .collect();
 
-    assert!(!lines.is_empty());
+    assert_ne!(lines, [] as [serde_json::Value; 0]);
     // Verify content line
     let content_line = lines.iter().find(|l| !l["done"].as_bool().unwrap_or(true));
     assert!(content_line.is_some(), "Should have content lines");
@@ -557,7 +557,10 @@ async fn test_openwebui_tags_discovery() {
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
     assert!(body["models"].is_array());
-    assert!(!body["models"].as_array().unwrap().is_empty());
+    assert_ne!(
+        body["models"].as_array().unwrap().as_slice(),
+        [] as [serde_json::Value; 0]
+    );
 }
 
 /// `LibreChat` queries /v1/models to discover models.
@@ -572,7 +575,10 @@ async fn test_librechat_models_discovery() {
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["object"], "list");
-    assert!(!body["data"].as_array().unwrap().is_empty());
+    assert_ne!(
+        body["data"].as_array().unwrap().as_slice(),
+        [] as [serde_json::Value; 0]
+    );
     assert_eq!(body["data"][0]["object"], "model");
 }
 
