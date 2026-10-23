@@ -97,7 +97,7 @@ mod tests {
         let (events, remaining) = parse_sse_buffer(input);
         assert_eq!(events.len(), 1);
         assert!(matches!(&events[0], SseEvent::Data(d) if d.contains("Hello")));
-        assert!(remaining.is_empty());
+        assert_eq!(remaining, "");
     }
 
     #[test]
@@ -107,7 +107,7 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert!(matches!(&events[0], SseEvent::Data(d) if d.contains('A')));
         assert!(matches!(&events[1], SseEvent::Data(d) if d.contains('B')));
-        assert!(remaining.is_empty());
+        assert_eq!(remaining, "");
     }
 
     #[test]
@@ -117,7 +117,7 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert!(matches!(&events[0], SseEvent::Data(_)));
         assert_eq!(events[1], SseEvent::Done);
-        assert!(remaining.is_empty());
+        assert_eq!(remaining, "");
     }
 
     #[test]
@@ -125,7 +125,7 @@ mod tests {
         // Incomplete event — no double newline yet
         let input = "data: {\"content\":\"partial\"}\n";
         let (events, remaining) = parse_sse_buffer(input);
-        assert!(events.is_empty());
+        assert_eq!(events, [] as [crate::api::stream::sse::SseEvent; 0]);
         assert_eq!(remaining, input);
     }
 
@@ -133,13 +133,13 @@ mod tests {
     fn test_parse_sse_partial_then_complete() {
         // First call: partial
         let (events1, remaining1) = parse_sse_buffer("data: {\"a\":1}\n");
-        assert!(events1.is_empty());
+        assert_eq!(events1, [] as [crate::api::stream::sse::SseEvent; 0]);
 
         // Second call: complete after appending more data
         let combined = format!("{remaining1}\ndata: {{\"b\":2}}\n\n");
         let (events2, remaining2) = parse_sse_buffer(&combined);
         assert_eq!(events2.len(), 2);
-        assert!(remaining2.is_empty());
+        assert_eq!(remaining2, "");
     }
 
     #[test]

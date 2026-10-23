@@ -259,7 +259,7 @@ async fn test_ollama_api_tags_format() {
 
     assert!(body["models"].is_array(), "Missing 'models' array: {body}");
     let models = body["models"].as_array().unwrap();
-    assert!(!models.is_empty());
+    assert_ne!(models.as_slice(), [] as [serde_json::Value; 0]);
 
     for m in models {
         assert!(m["name"].as_str().is_some(), "Missing 'name': {m}");
@@ -376,7 +376,7 @@ async fn test_ollama_api_generate_as_cli_sends() {
 
     let body = resp.text().await.unwrap();
     let lines: Vec<&str> = body.lines().filter(|l| !l.is_empty()).collect();
-    assert!(!lines.is_empty());
+    assert_ne!(lines, [] as [&str; 0]);
 
     // Each line should be valid NDJSON with 'response' field
     for (i, line) in lines.iter().enumerate() {
