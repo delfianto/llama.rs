@@ -448,7 +448,7 @@ mod tests {
         assert!(config.temperature.is_none());
         assert!(config.max_tokens.is_none());
         assert_eq!(config.ctx_overflow, "shift");
-        assert!(config.stop.is_empty());
+        assert_eq!(config.stop, [] as [std::string::String; 0]);
         assert!(config.top_k.is_none());
         assert!(config.repeat_penalty.is_none());
         assert!(config.presence_penalty.is_none());
@@ -781,7 +781,7 @@ mod tests {
 
         // Unset → empty
         let config = Config::from_env();
-        assert!(config.stop.is_empty());
+        assert_eq!(config.stop, [] as [std::string::String; 0]);
 
         // Comma-separated with trimming
         unsafe { std::env::set_var("LLAMA_STOP", "<|end|>, ###, STOP") };

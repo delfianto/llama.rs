@@ -122,7 +122,7 @@ async fn test_proxy_api_tags() {
 
     let body: serde_json::Value = resp.json().await.unwrap();
     let models = body["models"].as_array().unwrap();
-    assert!(!models.is_empty());
+    assert_ne!(models.as_slice(), [] as [serde_json::Value; 0]);
     assert!(models[0]["name"].as_str().is_some());
     assert!(models[0]["modified_at"].as_str().is_some());
 }
@@ -159,7 +159,7 @@ async fn test_openai_non_streaming_structure() {
     assert!(body["model"].as_str().is_some(), "Missing model");
 
     let choices = body["choices"].as_array().unwrap();
-    assert!(!choices.is_empty());
+    assert_ne!(choices.as_slice(), [] as [serde_json::Value; 0]);
     assert_eq!(choices[0]["message"]["role"], "assistant");
     assert!(choices[0]["message"]["content"].as_str().is_some());
     assert!(choices[0]["finish_reason"].as_str().is_some());
@@ -648,7 +648,7 @@ async fn test_ollama_chat_non_streaming_multi_turn() {
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["done"], true);
-    assert!(!body["message"]["content"].as_str().unwrap_or("").is_empty());
+    assert_ne!(body["message"]["content"].as_str().unwrap_or(""), "");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -841,7 +841,7 @@ async fn test_ollama_generate_non_streaming_with_system() {
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["done"], true);
-    assert!(!body["response"].as_str().unwrap_or("").is_empty());
+    assert_ne!(body["response"].as_str().unwrap_or(""), "");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -880,7 +880,7 @@ async fn test_ollama_generate_streaming_structure() {
     // Content lines use "response" field, not "message"
     let content_lines: Vec<&serde_json::Value> =
         lines.iter().filter(|l| l["done"] == false).collect();
-    assert!(!content_lines.is_empty());
+    assert_ne!(content_lines, [] as [&serde_json::Value; 0]);
     for cl in &content_lines {
         assert!(cl["response"].is_string(), "Missing response field: {cl}");
         assert!(cl["model"].as_str().is_some());
