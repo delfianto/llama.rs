@@ -1,16 +1,17 @@
-pkgname=llama-rs-bin
+pkgname=llama.rs
 pkgver=0.2.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Ollama-style CLI wrapper for llama.cpp'
 arch=('x86_64')
 url='https://github.com/delfianto/llama.rs'
 license=('MIT')
 depends=('glibc' 'libgcc' 'ca-certificates')
-provides=("llama-rs=$pkgver")
-conflicts=('llama-rs')
+provides=("llama-rs-bin=$pkgver-$pkgrel" "llama-rs=$pkgver-$pkgrel")
+conflicts=('llama-rs-bin' 'llama-rs')
+replaces=('llama-rs-bin')
 options=('!strip' '!debug')
 _archive="llama.rs-v$pkgver-linux-x86_64"
-source=("$url/releases/download/v$pkgver/$_archive.tar.gz")
+source=("$url/releases/download/arch-v$pkgver-$pkgrel/$_archive.tar.gz")
 sha256sums=('e401be396520aec9a6d970aa2525ae5b73dcb757350406e581bd96d164d7b3b3')
 
 package() {
