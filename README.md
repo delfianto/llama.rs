@@ -24,12 +24,13 @@ output.
 
 The package installs `llama`. Install `llama-server` and `llama-cli` from llama.cpp separately. Executables are installed under `/usr/bin`.
 
-Download the `.pkg.tar.zst` from [GitHub Releases](https://github.com/delfianto/llama.rs/releases/latest)
-and install it with `sudo pacman -U ./<package-file>`, or build the package
-from the checksum-verified release archive with `makepkg -si`:
+Download the `llama.rs` package from [GitHub Releases](https://github.com/delfianto/llama.rs/releases/latest)
+and install it with `sudo pacman -U ./<package-file>`. If pacman asks to remove the
+previous package, answer `y`. You can also build the package from the
+checksum-verified release archive with `makepkg -si`:
 
 ```sh
-git clone --branch v0.2.1 https://github.com/delfianto/llama.rs.git
+git clone --branch arch-v0.2.1-2 https://github.com/delfianto/llama.rs.git
 cd llama.rs/arch
 makepkg -si
 ```
