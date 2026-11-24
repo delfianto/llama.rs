@@ -56,7 +56,7 @@ See `docs/architecture.md` for full details. Key layers:
 
 ## Code Conventions
 
-- Rust 2024 edition, MSRV 1.85+
+- Rust 2024 edition, MSRV 1.100.0+
 - `anyhow` for application errors, `thiserror` for library-style errors in public APIs
 - All async code on tokio runtime
 - No `unwrap()` in non-test code — use `?` or `.expect("reason")`

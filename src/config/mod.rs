@@ -190,14 +190,12 @@ impl Config {
             temperature: env_opt("LLAMA_TEMPERATURE").and_then(|v| v.parse().ok()),
             max_tokens: env_opt("LLAMA_MAX_TOKENS").and_then(|v| v.parse().ok()),
             ctx_overflow: env_or("LLAMA_CTX_OVERFLOW", "shift").to_string(),
-            stop: env_opt("LLAMA_STOP")
-                .map(|s| {
-                    s.split(',')
-                        .map(|s| s.trim().to_string())
-                        .filter(|s| !s.is_empty())
-                        .collect()
-                })
-                .unwrap_or_default(),
+            stop: env_opt("LLAMA_STOP").map_or_default(|s| {
+                s.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            }),
             top_k: env_opt("LLAMA_TOP_K").and_then(|v| v.parse().ok()),
             repeat_penalty: env_opt("LLAMA_REPEAT_PENALTY").and_then(|v| v.parse().ok()),
             presence_penalty: env_opt("LLAMA_PRESENCE_PENALTY").and_then(|v| v.parse().ok()),

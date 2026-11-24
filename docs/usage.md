@@ -6,7 +6,7 @@ separately in [configuration.md](configuration.md).
 
 ## Installation
 
-Install Rust 1.85 or newer and build `llama-server` plus `llama-cli` from either
+Install Rust 1.100.0 or newer and build `llama-server` plus `llama-cli` from either
 [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) or
 [upstream llama.cpp](https://github.com/ggml-org/llama.cpp).
 
