@@ -1,8 +1,8 @@
 [package]
 name = "llama-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
-rust-version = "1.98.0"
+rust-version = "1.100.0"
 description = "Ollama-like CLI wrapper for llama.cpp"
 license = "MIT"
 
@@ -25,7 +25,7 @@ dirs = "7"
 futures = "0.3"
 indicatif = "0.18"
 mimalloc = "0.1"
-nix = { version = "0.31", features = ["signal", "process"] }
+nix = { version = "0.32", features = ["signal", "process"] }
 requestty = "0.7"
 reqwest = { version = "0.13", features = ["stream", "json"] }
 serde = { version = "1", features = ["derive"] }
@@ -38,7 +38,6 @@ tower = "0.5"
 tower-http = { version = "0.7", features = ["cors", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid = { version = "1", features = ["v4"] }
 which = "8"
 
 [dev-dependencies]

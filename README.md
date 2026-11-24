@@ -20,9 +20,23 @@ output.
 
 ## Quick start
 
+### Arch Linux (x86_64)
+
+The package installs `llama`. Install `llama-server` and `llama-cli` from llama.cpp separately. Executables are installed under `/usr/local/bin`.
+
+Download the `.pkg.tar.zst` from [GitHub Releases](https://github.com/delfianto/llama.rs/releases/latest)
+and install it with `sudo pacman -U ./<package-file>`, or build the package
+from the checksum-verified release archive with `makepkg -si`:
+
+```sh
+git clone --branch v0.2.0 https://github.com/delfianto/llama.rs.git
+cd llama.rs/arch
+makepkg -si
+```
+
 Requirements:
 
-- Rust 1.85 or newer
+- Rust 1.100.0 or newer
 - `llama-server` and `llama-cli` from ik_llama.cpp or current upstream llama.cpp
 
 Install the wrapper and ensure the llama.cpp binaries are in `PATH`:

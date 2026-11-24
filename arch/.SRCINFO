@@ -1,0 +1,18 @@
+pkgbase = llama-rs-bin
+	pkgdesc = Ollama-style CLI wrapper for llama.cpp
+	pkgver = 0.2.0
+	pkgrel = 1
+	url = https://github.com/delfianto/llama.rs
+	arch = x86_64
+	license = MIT
+	depends = glibc
+	depends = libgcc
+	depends = ca-certificates
+	provides = llama-rs=0.2.0
+	conflicts = llama-rs
+	options = !strip
+	options = !debug
+	source = https://github.com/delfianto/llama.rs/releases/download/v0.2.0/llama.rs-v0.2.0-linux-x86_64.tar.gz
+	sha256sums = e8f1d272126a9472fb7e630b76ac07a3afbc7821f135762a631010f9a2504b7b
+
+pkgname = llama-rs-bin
