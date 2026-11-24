@@ -1,5 +1,5 @@
 pkgname=llama-rs-bin
-pkgver=0.2.0
+pkgver=0.2.1
 pkgrel=1
 pkgdesc='Ollama-style CLI wrapper for llama.cpp'
 arch=('x86_64')
@@ -11,10 +11,10 @@ conflicts=('llama-rs')
 options=('!strip' '!debug')
 _archive="llama.rs-v$pkgver-linux-x86_64"
 source=("$url/releases/download/v$pkgver/$_archive.tar.gz")
-sha256sums=('e8f1d272126a9472fb7e630b76ac07a3afbc7821f135762a631010f9a2504b7b')
+sha256sums=('e401be396520aec9a6d970aa2525ae5b73dcb757350406e581bd96d164d7b3b3')
 
 package() {
     cd "$srcdir/$_archive"
-    install -Dm0755 llama "$pkgdir/usr/local/bin/llama"
+    install -Dm0755 llama "$pkgdir/usr/bin/llama"
     install -Dm0644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
